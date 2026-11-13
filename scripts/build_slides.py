@@ -469,6 +469,7 @@ def deck() -> str:
 \usepackage{lmodern}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{amssymb}
 \definecolor{banner}{HTML}{1B3A6B}
 \definecolor{accent}{HTML}{2E6DB4}
 \setbeamercolor{frametitle}{bg=banner,fg=white}
@@ -534,16 +535,29 @@ Measured once a month, so it understates the first-weeks effect that daily tradi
 \end{frame}
 
 \begin{frame}{How we bet on it}
+\textbf{Our alpha} (Grinold--Kahn form): \quad $\alpha_i = \sigma_i \times \bar d_{\,\text{age of event}}$
 \begin{itemize}
-\item \textbf{Alpha} (Grinold--Kahn, Manual 4.6): $\alpha_i = IC \times \sigma_i \times Z_i$.
-  \begin{itemize}
-  \item Our $Z_i$ is a flag: did stock $i$ have a liquidity event 1--21 days ago, or 22--63 days ago?
-  \item We estimate $IC \times Z$ directly: the average gap to similar stocks per unit of volatility, for each age (a regression on a 0/1 flag, Manual 4.4). Past years only, re-estimated every January.
-  \end{itemize}
-\item \textbf{Optimizer} (Manual ch.\ 3): maximize $h^\top\alpha - \tfrac{\gamma}{2} h^\top V h$ with $h^\top\iota = 0$, $h^\top\beta = 0$, 5\% tracking error, and size and liquidity in line with the benchmark.
-\item \textbf{Two versions:} no limits, and no shorting ($b + h \ge 0$, Manual 3.4). The transfer coefficient extends the fundamental law to $IR = TC \times IC \sqrt{BR}$: TC is how much of the forecast survives the long-only rule.
-\item \textbf{No trading costs:} the signal would be one input to the fund's alpha, where trades net out. We show what it would cost alone.
+\item $\sigma_i$: the stock's volatility. $\bar d$: how far flagged stocks fell behind similar stocks per unit of volatility, at ages 1--21 and 22--63 days after the event, from earlier years only.
+\item Stocks without a recent event get $\alpha = 0$.
 \end{itemize}
+\medskip
+\textbf{Optimizer:} \quad maximize $h^\top\alpha$ \ at a fixed active risk of 5\%
+\medskip
+
+\centering\small
+\begin{tabular}{lcc}
+\toprule
+Constraint & No limits & No shorting \\
+\midrule
+Fully invested: active weights sum to zero & $\checkmark$ & $\checkmark$ \\
+Zero beta to the benchmark & $\checkmark$ & $\checkmark$ \\
+Net zero within each size $\times$ liquidity group & $\checkmark$ & $\checkmark$ \\
+Long-only: no weight below zero ($b + h \ge 0$) & -- & $\checkmark$ \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\raggedright\scriptsize No shorting reaches only 0.1--0.5\% active risk: the stocks it bets against hold little benchmark weight. No trading costs are charged.
 \end{frame}
 
 \slide{vol_check.png}
