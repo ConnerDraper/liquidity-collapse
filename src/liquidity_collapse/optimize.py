@@ -1,20 +1,17 @@
-"""Optimizer backtests of the liquidity event clock: cache, runs, lambda walk-forward, transfer coefficient.
+"""Optimizer backtests of the liquidity-event alpha: risk-model cache, runs, lambda walk-forward, transfer coefficient.
 
-Adapted from research/earnings-signals/src/earnings_signals/backtest.py (risk_components,
-drift, solve_day, fill_spreads, the run loop). Active weights h with zero active investment,
-zero active beta, zero net weight within each size x pre-shock-illiquidity fifth, 5% active-risk cap; constrained runs add w_b + w_a >= 0. Weights dated
-D use the signal from the previous trading day's close; risk model, beta and benchmark come
-from D; half-spreads from the previous trading day. Development years only.
+Active weights h (w = b + h) solve sf-quant's cost_aware_mve_optimizer:
+    max  alpha'h - (gamma/2) h'Vh - lambda * sum_i c_i |h_i - h_prev_i|     (c = half-spread)
+    s.t. h'V h <= target^2,  sum h = 0,  beta'h = 0,  net zero within each size x pre-shock-illiquidity fifth,
+         and, by run, nothing (no limits), b + h >= -0.25% (limited shorting) or b + h >= 0 (no shorting).
+Weights dated D use the signal from the previous trading day's close; risk model, beta and benchmark come from D.
+Alpha comes from event_alpha.EventAlphas.
 
-Runs:  U-D, C-D (daily, no costs), CC-D (daily, costs), CC-M (monthly, costs), U-M (monthly, no costs).
-Objective: max alpha'h - lambda * sum c|h - h_prev| - (gamma/2) h'Vh, gamma set daily so the
-unconstrained no-cost portfolio sits at the 5% risk target. Alpha comes from event_alpha.EventAlphas.
-Set LAB_SMOKE=1 to run every step on January-March 2011 into separate smoke directories.
-
-LAB_FIXED_GAMMA=1: the fixed-gamma design. Each year's gamma is the median calibrated gamma (the value that would put
-the unconstrained portfolio at fixed_target_risk) over the previous year, the risk cap is fixed_target_risk, and runs,
-analysis and the lambda schedule go to output/optimizer_fixed_gamma[_holdout]. The solver is sf-quant's
-cost_aware_mve_optimizer with GroupNeutral / MaxShort / LongOnly constraints.
+Final design (LAB_FIXED_GAMMA=1, output/optimizer_fixed_gamma[_holdout]): target 1%; gamma fixed each year at the
+previous year's median calibrated gamma; runs U/S/C-D and U/S/C-M without costs, UC/SC/CC-D and -M with costs, lambda
+picked each January from earlier years (frozen at its 2018 value for 2019-2024).
+Earlier design (default, output/optimizer[_holdout]): target 5%, gamma recalibrated daily, no costs (U-D, C-D, U-M, C-M).
+LAB_HOLDOUT=1 runs 2019-2024; LAB_SMOKE=1 runs January-March 2011 into separate smoke folders.
 """
 
 import datetime as dt
