@@ -71,6 +71,12 @@ The slides carry only short phrases; this is what we say. Numbers match the slid
 - **Limited shorting + costs:** +0.57% a year (IR 0.59) in 2011–18, +0.35% (IR 0.31) in 2019–24. Turnover about 6× a year, so positions last about two months, as long as the drift does. It pays about 0.5% a year in spreads.
 - **No shorting + costs:** +0.12% (IR 1.04) in 2011–18, +0.17% (IR 0.56) in 2019–24. Turnover about half a time a year, almost nothing in spreads.
 - **TC** (about 0.8 limited, about 0.35 long-only): how much of the signal's strength survives the shorting rule and costs together.
+- **Scaling:** the chart puts every line at the same risk. Long-only actually runs at only 0.1–0.3% risk, so its line is scaled up 5–10×, which it can't do in practice: to take more risk it would have to short.
+- **Likely question, "why does the more constrained portfolio have the better risk-adjusted return?"** It's trading costs.
+  - Before costs, the two have about the same IR: 1.12 vs 1.16 in 2011–18; in 2019–24 limited shorting is actually ahead, 0.73 vs 0.64.
+  - Limited shorting trades about 6× a year, a third of it in small stocks, and spreads take about half its return (about 0.5% a year).
+  - Long-only trades about 0.5× a year in larger stocks, and spreads cost it 0.01–0.02%.
+  - So the higher IR comes with far less money: limited shorting still earns 2–5× more in absolute terms. Appendix slide 16 has the numbers.
 - **Likely question, "is the turnover crazy?"** About 6× a year one-way is faster than value or momentum (under 1× to 4×) but slower than short-term reversal (10×+). Charging costs cut it by about 60%.
 
 ## 12. Monthly rebalancing
@@ -94,15 +100,20 @@ The slides carry only short phrases; this is what we say. Numbers match the slid
 
 ## Appendix (only if asked)
 
-**16. IC by year:** after removing the fund's scores, the signal ranks next month's stock-specific returns correctly in 12 of 13 years (mean IC 0.015, t 6.0). It's new information, not an accident of one period.
+**16. Why does long-only have the higher IR?** It's trading costs: before costs the IRs are about equal (1.12 vs 1.16, then 0.73 vs 0.64); limited shorting's spreads take about half its return, long-only's almost nothing. If they push further, "but even without costs long-only's IR is higher" (1.97 vs 1.07 on 2011–18, in the no-cost runs):
+  - the portfolios that can short fund their bets by going long similar small, illiquid stocks, and those lag too. In the earlier design's breakdown, the hedges gave back over half the gain from the flagged stocks;
+  - long-only funds its small underweights with overweights spread over larger benchmark stocks, which gave back nothing;
+  - the model actually *expected* long-only to have the lower IR (0.5–0.7 vs 1.1–1.4). Six to eight years of a portfolio this small can't tell those IRs apart with confidence, but the gap shows up in every version we ran.
 
-**17. What did we change, and when?** v2: a daily flag missed most of the drift, so each event got an age. v3: a noisy positive alpha for large stocks made the portfolio buy them, so positive alphas were banned and bets hedged with similar stocks. v4: alpha scales with volatility. Then frozen.
+**17. IC by year:** after removing the fund's scores, the signal ranks next month's stock-specific returns correctly in 12 of 13 years (mean IC 0.015, t 6.0). It's new information, not an accident of one period.
 
-**18. How we picked the short limit:** we tried 0.05% to 2% per stock. The IRs were all within noise of each other (0.94–1.14), so we picked by risk: 0.25% sits between long-only and no limits.
+**18. What did we change, and when?** v2: a daily flag missed most of the drift, so each event got an age. v3: a noisy positive alpha for large stocks made the portfolio buy them, so positive alphas were banned and bets hedged with similar stocks. v4: alpha scales with volatility. Then frozen.
 
-**19. Every portfolio with and without costs:** costs cut turnover by about 60% for the shorting portfolios and roughly halved their return; long-only barely changes, since it trades little. A star marks what a no-cost portfolio would pay in spreads if traded.
+**19. How we picked the short limit:** we tried 0.05% to 2% per stock. The IRs were all within noise of each other (0.94–1.14), so we picked by risk: 0.25% sits between long-only and no limits.
 
-**20. Where does the return come from?** By the age of the event behind each position: the bets against freshly flagged stocks earn; the hedges in similar stocks give some back, because small illiquid stocks lag in general.
+**20. Every portfolio with and without costs:** costs cut turnover by about 60% for the shorting portfolios and roughly halved their return; long-only barely changes, since it trades little. A star marks what a no-cost portfolio would pay in spreads if traded.
+
+**21. Where does the return come from?** By the age of the event behind each position: the bets against freshly flagged stocks earn; the hedges in similar stocks give some back, because small illiquid stocks lag in general.
 
 ---
 
@@ -112,6 +123,7 @@ The slides carry only short phrases; this is what we say. Numbers match the slid
 |---|---|
 | "A tenth of a percent a year is nothing." | On its own, yes. But it's new information, and as one input its trades net against other signals' trades. |
 | "Isn't this data mining?" | We changed the design on 2011–18, then froze it and tested once on six untouched years. Long-only stayed positive after costs. |
+| "Why does the more constrained portfolio have the better IR?" | Trading costs. Before costs the IRs are about equal; limited shorting trades 6× a year and spreads take half its return, long-only pays almost nothing. And long-only runs at only 0.1–0.3% risk, so it makes less money. |
 | "Why not just avoid the stocks?" | Same bet, but it moves 8–9% of the index and half its risk is factor tilts. The optimizer takes the same bet without the noise. |
 | "What would prove you wrong?" | Returns rising after a collapse, the effect being as strong in large liquid stocks, or failure in future data. |
 | "Why not just short these stocks?" | The fund is long-only, and borrowing these stocks is expensive. That's exactly why the drift exists. |
