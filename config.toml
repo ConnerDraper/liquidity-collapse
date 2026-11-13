@@ -1,0 +1,48 @@
+[data]
+root = "/home/connerd4"
+database = "production"
+research_database = "/home/connerd4/groups/grp_quant/database/research"
+features = "/home/connerd4/silverfund/research/alpha-signals/output/features"
+downloads = "/home/connerd4/silverfund/data"
+output = "output"
+
+[window]
+first_formation = 2005-12-01
+ic_start = 2006-01-01
+portfolio_start = 2011-01-01   # Barra spreads start late 2010
+dev_end = 2018-12-31
+holdout_start = 2019-01-01
+holdout_end = 2024-12-31
+
+[portfolio]
+tail = 0.10      # long-short: top and bottom 10% of scored benchmark names
+tilt = 0.5       # long-only: weight = benchmark * (1 + tilt * clip(z))
+z_clip = 2.0
+
+[slurm]
+cpus = 4
+mem = "64G"
+time = "03:00:00"
+
+[optimizer]
+# Liquidity-shock optimizer study (development years only; plan: make-a-plan-for-hidden-russell.md)
+history_start = 2006-01-01      # first date of the daily signal used for walk-forward choices
+cache_start = 2010-12-01        # risk-model cache starts here (one month before the backtests)
+start = 2011-01-03              # first backtest day
+end = 2018-12-31                # nothing after this date is read
+first_year = 2011
+target_risk = 0.05              # annualized active-risk cap
+half_lives = [0, 1, 2, 3, 5, 10, 21, 63, 126]      # EWMA half-lives, trading days
+flag_shares = [0.025, 0.05, 0.10, 0.20]
+days_per_month = 21             # daily alpha = monthly alpha / 21
+lambdas = [0.5, 1.0, 2.0, 4.0]  # cost aversion; alpha in cost runs is the remaining drift, so 1 = pay one one-way cost
+default_lambda = 1.0            # used 2011-2013, before three years of history exist
+first_lambda_year = 2014
+
+[event]
+# Event-clock liquidity signal (plan: make-a-plan-for-hidden-russell.md)
+flag_share = 0.05                      # an event: entering the bottom 5% of the unsmoothed score
+sensitivity_shares = [0.025, 0.10]     # reported for the paper, not chosen
+refractory = 21                        # an event needs no flag in the prior 21 trading days
+bucket_edges = [21, 63, 126, 252, 378, 504]   # age buckets 1-21, 22-63, ..., 379-504
+stop_t = 0.0                           # the window extends while the next bucket's pooled matched drift is negative

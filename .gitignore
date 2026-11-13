@@ -1,0 +1,12 @@
+output/
+.venv/
+__pycache__/
+.pytest_cache/
+scratch/
+slurm/
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
