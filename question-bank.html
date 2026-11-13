@@ -3,329 +3,312 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Liquidity Collapse: Question Bank</title>
+<title>Liquidity Collapse: Question Drill</title>
 <style>
-  :root { --ink:#1b1b1b; --muted:#5a5a5a; --line:#d9d9d9; --navy:#1b3a6b; --blue:#2a78d6; --good:#1e8a4c; --again:#c4501f; --bg:#f7f7f5; }
+  :root { --ink:#1b1b1b; --muted:#5a5a5a; --line:#d9d9d9; --navy:#1b3a6b; --blue:#2a78d6; --good:#1e8a4c; --bad:#c4501f; --bg:#f7f7f5; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  body { margin:0; font-family:-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color:var(--ink); background:var(--bg); }
   header { background:var(--navy); color:#fff; padding:16px 24px; border-bottom:4px solid var(--blue); }
   header h1 { margin:0; font-size:22px; }
   header p { margin:4px 0 0; opacity:.85; font-size:14px; }
-  main { max-width:900px; margin:0 auto; padding:20px 24px 60px; }
-  .controls { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:18px; }
-  .controls h2 { font-size:14px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-  .cats { display:flex; flex-wrap:wrap; gap:6px 14px; margin-bottom:12px; }
-  .cats label { font-size:14px; cursor:pointer; white-space:nowrap; }
-  .buttons { display:flex; flex-wrap:wrap; gap:8px; }
-  button { font:inherit; font-size:14px; padding:7px 14px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
-  button:hover { border-color:var(--blue); }
-  button.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
-  button.good { background:var(--good); color:#fff; border-color:var(--good); }
-  button.again { background:var(--again); color:#fff; border-color:var(--again); }
-  .progress { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin:6px 0 4px; }
-  .progress div { height:100%; background:var(--good); width:0; transition:width .2s; }
-  .status { font-size:13px; color:var(--muted); display:flex; justify-content:space-between; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:26px 28px; min-height:260px; margin-top:12px; }
-  .tag { display:inline-block; font-size:12px; color:#fff; background:var(--blue); border-radius:10px; padding:2px 10px; margin-bottom:12px; }
-  .q { font-size:21px; font-weight:600; line-height:1.35; }
-  .a { margin-top:18px; padding-top:16px; border-top:1px solid var(--line); font-size:16px; line-height:1.55; }
-  .a .follow { margin-top:10px; color:var(--muted); font-size:14px; }
-  .hint { font-size:13px; color:var(--muted); margin-top:14px; }
-  .actions { display:flex; gap:10px; margin-top:18px; }
+  main { max-width:820px; margin:0 auto; padding:20px 24px 60px; }
+  .filters { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:13px; color:var(--muted); margin-bottom:12px; }
+  .filters label { cursor:pointer; white-space:nowrap; }
+  .banner { background:#fff6e5; border:1px solid #f0d49a; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:14px; }
+  .progress { height:8px; background:var(--line); border-radius:4px; overflow:hidden; }
+  .progress div { height:100%; background:var(--blue); width:0; transition:width .2s; }
+  .status { font-size:13px; color:var(--muted); display:flex; justify-content:space-between; margin:6px 0 12px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:24px 26px; }
+  .tag { display:inline-block; font-size:12px; color:#fff; background:var(--blue); border-radius:10px; padding:2px 10px; margin-bottom:10px; }
+  .q { font-size:20px; font-weight:600; line-height:1.35; margin-bottom:16px; }
+  .choice { display:block; width:100%; text-align:left; font:inherit; font-size:16px; line-height:1.4; padding:12px 14px; margin-bottom:8px;
+            border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  .choice:hover:not(:disabled) { border-color:var(--blue); background:#f3f8fe; }
+  .choice .key { display:inline-block; width:22px; color:var(--muted); font-weight:600; }
+  .choice.right { border-color:var(--good); background:#e8f5ee; }
+  .choice.wrong { border-color:var(--bad); background:#fbece6; }
+  .choice:disabled { cursor:default; }
+  .why { margin-top:10px; padding:12px 14px; border-radius:8px; background:#f4f4f2; font-size:15px; line-height:1.5; }
+  .why b.ok { color:var(--good); } .why b.no { color:var(--bad); }
+  button.btn { font:inherit; font-size:15px; padding:9px 18px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; margin-top:14px; margin-right:8px; }
+  button.btn.primary { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .end h2 { margin:0 0 6px; }
+  .missed { margin-top:14px; }
+  .missed div { border-left:3px solid var(--bad); padding:6px 12px; margin-bottom:8px; background:#fff; font-size:14px; }
+  .missed div span { display:block; color:var(--good); margin-top:3px; }
   .hidden { display:none; }
-  .done { text-align:center; padding:40px 10px; }
-  .list-item { background:#fff; border:1px solid var(--line); border-radius:8px; padding:14px 18px; margin-bottom:10px; }
-  .list-item .q { font-size:16px; }
-  .list-item .a { margin-top:8px; padding-top:8px; font-size:15px; }
   kbd { font-family:inherit; font-size:12px; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 5px; background:#fafafa; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Liquidity Collapse: Question Bank</h1>
-  <p>Practice answering questions about the theory, mean–variance optimization, the information and Sharpe ratios, active positions, and our results.</p>
+  <h1>Liquidity Collapse: Question Drill</h1>
+  <p>30 multiple-choice questions on our idea, Sharpe and information ratios, active positions, mean–variance optimization and our results. Missed questions come back until you get them right.</p>
 </header>
 <main>
-  <section class="controls">
-    <h2>Categories</h2>
-    <div class="cats" id="cats"></div>
-    <div class="buttons">
-      <button class="primary" onclick="startDrill()">Start drill</button>
-      <button onclick="setAll(true)">All categories</button>
-      <button onclick="setAll(false)">None</button>
-      <button onclick="showList()">Show all questions and answers</button>
-    </div>
-  </section>
+  <div class="filters" id="filters"></div>
+  <div class="banner hidden" id="banner"></div>
+  <div class="progress"><div id="bar"></div></div>
+  <div class="status"><span id="where"></span><span id="score"></span></div>
 
-  <section id="drill">
-    <div class="progress"><div id="bar"></div></div>
-    <div class="status"><span id="left"></span><span id="score"></span></div>
-    <div class="card" id="card">
-      <div id="cardBody">
-        <span class="tag" id="tag"></span>
-        <div class="q" id="question"></div>
-        <div class="a hidden" id="answer"></div>
-        <div class="hint" id="hint">Say your answer out loud, then press <kbd>Space</kbd> or click <b>Reveal</b>.</div>
-        <div class="actions">
-          <button class="primary" id="reveal" onclick="reveal()">Reveal</button>
-          <button class="good hidden" id="got" onclick="rate(true)">Got it <kbd>1</kbd></button>
-          <button class="again hidden" id="again" onclick="rate(false)">Again <kbd>2</kbd></button>
-        </div>
-      </div>
-      <div class="done hidden" id="done">
-        <div class="q">Done.</div>
-        <p id="doneText"></p>
-        <button class="primary" onclick="startDrill()">Drill again</button>
-      </div>
-    </div>
-  </section>
+  <div class="card" id="quiz">
+    <span class="tag" id="tag"></span>
+    <div class="q" id="question"></div>
+    <div id="choices"></div>
+    <div class="why hidden" id="why"></div>
+    <button class="btn primary hidden" id="next" onclick="next()">Next <kbd>Enter</kbd></button>
+  </div>
 
-  <section id="list" class="hidden"></section>
+  <div class="card end hidden" id="end">
+    <h2 id="endTitle"></h2>
+    <div id="endText"></div>
+    <div class="missed" id="missedList"></div>
+    <button class="btn primary hidden" id="drillMisses" onclick="startRound(lastMisses)"></button>
+    <button class="btn" onclick="startOver()">Start over with all questions</button>
+  </div>
 </main>
 
 <script>
-const BANK = [
-// ---------------------------------------------------------------- Our idea
-["Our idea", "What is a liquidity collapse, and how do we measure it?",
- "A stock suddenly trades far less than it normally does. We measure illiquidity as the price move per dollar traded (Amihud illiquidity) over the last month and compare it with the stock's own average over the previous year. A stock has an event when it enters the worst 5% of stocks on that measure after 21 quiet days.",
- "Why compare a stock with its own past? Because we want a change in liquidity, not a stock that is always illiquid."],
-["Our idea", "In one breath: why should a liquidity collapse lead to lower returns?",
- "Most investors avoid illiquid stocks; only a small group of patient investors holds them, at a slightly lower price. When trading collapses, the stock has to pass from its current holders to that small group. Sellers can only exit slowly because volume has dried up, and the few buyers need a lower price for each sale, so the price walks down for months.", ""],
-["Our idea", "Why is this about a change in liquidity rather than its level?",
- "A stock that has always been illiquid already sits with patient holders, so there is nothing to hand off. The drift comes from the transition. That is why we compare each flagged stock with similar stocks that had the same prior illiquidity.", ""],
-["Our idea", "Doesn't the illiquidity premium say illiquid stocks should earn more, not less?",
- "Yes, and we see it: holding size fixed, stocks that are already illiquid earn about 0.8% a month more (t = 2.8). That premium is the patient holders' reward. During a hand-off, though, the price is falling to its new, lower level, so returns are low while it happens. The premium comes after the stock is settled with patient holders.", ""],
-["Our idea", "If the decline is predictable, why doesn't someone short the stock and trade it away?",
- "Shorting small, illiquid stocks is expensive and often impossible to arrange: shares are hard to borrow and trading them moves the price. So the predictable drift survives.", ""],
-["Our idea", "Why is the decline gradual instead of immediate?",
- "Because the exit is slow. Volume has dried up, so holders can only sell a little each day without crushing the price, and the pool of patient buyers is small and has limited capital.", ""],
-["Our idea", "What does the story predict, and did the data agree?",
- "Five predictions: (1) lower returns than similar stocks, (2) gradual and strongest at first, (3) strongest in small stocks, (4) driven by the fall in trading volume, (5) already-illiquid stocks earn slightly more. All five hold in 2006–2018: about −2.9% after a year against similar stocks (t = −3.6), −0.5% in the first month, strongest in smaller stocks, the volume part carries most of it, and +0.8% a month for already-illiquid stocks at a given size.", ""],
-["Our idea", "What are 'similar stocks'?",
- "Stocks on the same day in the same size fifth and the same fifth of illiquidity measured three months earlier, with no recent event. Comparing with them separates the collapse itself from simply being a small or illiquid stock.", ""],
-["Our idea", "Why do we remove the fund's six existing scores first?",
- "So the signal only gets credit for information the fund does not already have. Each day we regress the shock on the six scores and keep the residual. The raw shock's monthly IC is 0.005; after removing the scores it is 0.015 (t = 6.0).",
- "The six scores: idiosyncratic volatility, momentum, reversal, Barra momentum, beta and Barra reversal."],
-["Our idea", "What is an abnormal (specific) return, and why use it?",
- "The part of a stock's return not explained by the market and its industry and style factors. The optimizer neutralizes those factor exposures, so the abnormal return is the part our forecast needs to predict.", ""],
-["Our idea", "Is this just short-term reversal in disguise?",
- "No. Controlling for last month's return barely changes the result: flagged stocks earn 0.18% a month less without that control and 0.17% with it. The event is essentially uncorrelated with last month's return.", ""],
-["Our idea", "Where does the effect show up most?",
- "In small, illiquid stocks: about −2.9 to −3.4% after a year in the smaller size groups, and only −0.8% (t = −1.4) in the largest fifth. That is where patient buyers are scarcest, and also where the benchmark holds the least weight.", ""],
+// Each question: [topic, question, correct answer, [three wrong answers], explanation]
+const QS = [
+["Our idea", "What counts as a liquidity collapse in our study?",
+ "A stock's trading falls far below its own normal level over the past year",
+ ["A stock is in the least liquid fifth of the market", "A stock's price falls more than 10% in a week", "A stock is removed from the benchmark"],
+ "We compare each stock with its own past year, using the price move per dollar traded (Amihud illiquidity). An event is entering the worst 5% of stocks after 21 quiet days."],
+["Our idea", "Why do we expect a liquidity collapse to be followed by lower returns?",
+ "The stock must pass from investors who avoid illiquid stocks to a small group of patient buyers, and that slow hand-off pushes the price down",
+ ["Illiquid stocks are riskier, so investors demand a higher return", "Companies whose stock stops trading are usually about to fail", "Wider bid–ask spreads mechanically lower measured returns"],
+ "Most investors avoid illiquid stocks. After a collapse the stock has to move to the few patient holders, who will only buy at a lower price, and that takes months."],
+["Our idea", "Why is the story about a change in liquidity rather than its level?",
+ "A stock that was always illiquid is already held by patient investors, so there is nothing to hand off",
+ ["Illiquid stocks always underperform, so the level is already priced in", "The level of liquidity is too hard to measure", "Changes in liquidity are larger than levels"],
+ "That's why we compare each flagged stock with similar stocks that had the same illiquidity before the event."],
+["Our idea", "If the decline is predictable, why isn't it traded away?",
+ "Shorting small, illiquid stocks is expensive and often impossible",
+ ["The effect is too small for anyone to bother", "Regulators forbid trading on liquidity data", "The decline only exists in Barra's data"],
+ "Anyone who saw it coming would want to short the stock, but these shares are hard to borrow and costly to trade."],
+["Our idea", "Why is the decline gradual rather than immediate?",
+ "With volume dried up, holders can sell only a little at a time, and the few patient buyers need a lower price for each sale",
+ ["Investors only learn about it at the next earnings report", "Index funds rebalance only once a quarter", "The price drops at once; it only looks gradual because of averaging"],
+ "The exit is slow, so the price walks down: −0.5% in the first month and about −2.9% after a year against similar stocks."],
+["Our idea", "Which finding directly supports the hand-off story?",
+ "Holding size fixed, stocks that are already illiquid earn slightly more",
+ ["Large stocks show the strongest drift", "The drift comes from large price moves rather than falling volume", "Flagged stocks bounce back within a week"],
+ "About +0.8% a month (t = 2.8). That is the patient holders' reward for holding illiquid stocks; the drift happens during the transition to them."],
+["Our idea", "Why do we remove the fund's six existing scores from the signal first?",
+ "So the signal only gets credit for information the fund doesn't already trade",
+ ["To make the signal less volatile", "Because the scores are measured with error", "To lower trading costs"],
+ "After removing them the monthly IC rises from 0.005 to 0.015 (t = 6.0): the part the fund's scores miss is the useful part."],
 
-// ---------------------------------------------------------------- Sharpe ratio
-["Sharpe ratio", "What is the Sharpe ratio?",
- "Expected excess return over the risk-free rate, divided by volatility: (E[r] − r_f) / σ. It is the reward per unit of total risk.", ""],
-["Sharpe ratio", "Does leverage change a portfolio's Sharpe ratio?",
- "No. Levering up multiplies both the excess return and the volatility by the same factor, so the ratio is unchanged. Leverage moves you along the capital allocation line, not onto a better one.", ""],
-["Sharpe ratio", "What is the capital allocation line?",
- "The line of portfolios that mix the risk-free asset with one risky portfolio. Its slope is that portfolio's Sharpe ratio. Every investor prefers the steepest line and then chooses a point on it according to risk tolerance.", ""],
-["Sharpe ratio", "Why does the Sharpe ratio not determine how much risk to take?",
- "All points on a capital allocation line share the same Sharpe ratio. How far along the line to go depends on the investor's risk tolerance, not on the ratio.", ""],
-["Sharpe ratio", "What does the maximum-Sharpe portfolio look like?",
- "Weights proportional to Σ⁻¹μ, the inverse covariance matrix times expected excess returns, scaled to the desired risk. It is the tangency portfolio: the risky portfolio with the steepest capital allocation line.", ""],
-["Sharpe ratio", "When does a small tilt toward an asset raise a portfolio's Sharpe ratio?",
- "When the asset's alpha relative to the portfolio is positive, that is, its expected excess return is higher than its beta to the portfolio justifies.", ""],
+["Sharpe ratio", "The Sharpe ratio is…",
+ "(Expected return − risk-free rate) ÷ volatility",
+ ["Expected return ÷ beta", "(Expected return − benchmark return) ÷ tracking error", "Expected return ÷ maximum drawdown"],
+ "Reward per unit of total risk. The benchmark-relative version, active return over tracking error, is the information ratio."],
+["Sharpe ratio", "You lever a portfolio 2× by borrowing at the risk-free rate. Its Sharpe ratio…",
+ "Stays the same",
+ ["Doubles", "Halves", "Rises by √2"],
+ "Excess return and volatility both double, so the ratio is unchanged. Leverage moves you along the capital allocation line."],
+["Sharpe ratio", "The slope of the capital allocation line equals…",
+ "The risky portfolio's Sharpe ratio",
+ ["The risky portfolio's beta", "The risk-free rate", "The risky portfolio's volatility"],
+ "Mixing the risk-free asset with a risky portfolio traces a line whose slope is that portfolio's Sharpe ratio. Investors want the steepest line."],
+["Sharpe ratio", "The maximum-Sharpe (tangency) portfolio's weights are proportional to…",
+ "Σ⁻¹μ: the inverse covariance matrix times expected excess returns",
+ ["μ: expected excess returns alone", "1/σ: each asset's inverse volatility", "Σμ: the covariance matrix times expected excess returns"],
+ "It accounts for both expected returns and how assets move together; the overall scale is then set by risk tolerance."],
 
-// ---------------------------------------------------------------- Alpha and beta
-["Alpha and beta", "How is alpha defined as a regression?",
- "Regress the asset's excess return on the portfolio's (or benchmark's) excess return: r_i − r_f = α + β(r_p − r_f) + ε. Alpha is the intercept: the expected return not explained by exposure to the portfolio.", ""],
-["Alpha and beta", "What is an abnormal return?",
- "The part of the return unrelated to the benchmark or factors: alpha plus the unexpected residual. Alpha is its expected part, the part we try to forecast.", ""],
-["Alpha and beta", "How does the active portfolio's alpha relate to the fund's alpha?",
- "They are the same. The active portfolio is the fund minus the benchmark, and the benchmark has zero alpha relative to itself, so the fund's alpha relative to the benchmark equals the active portfolio's alpha.", ""],
-["Alpha and beta", "How does the active portfolio's beta relate to the fund's beta?",
- "Active beta = fund beta − 1. A fund with beta 1 to its benchmark has an active portfolio with beta 0.", ""],
-["Alpha and beta", "Why do funds target a beta of 1 (active beta of 0)?",
- "So the active return comes from stock selection, not from timing the market. Investors set their own market exposure; a mandate that fixes beta keeps the manager from loading up on it.", ""],
+["Alpha and beta", "In the regression r_i − r_f = α + β(r_p − r_f) + ε, alpha is…",
+ "The expected return not explained by exposure to the portfolio",
+ ["The asset's total expected return", "The asset's sensitivity to the portfolio", "The unexpected part of the return"],
+ "Beta is the sensitivity and ε the unexpected part. A positive alpha means tilting toward the asset raises the portfolio's Sharpe ratio."],
+["Alpha and beta", "A fund has a beta of 1.1 to its benchmark. Its active portfolio's beta is…",
+ "0.1",
+ ["1.1", "−0.1", "0"],
+ "Active beta = fund beta − 1, because the active portfolio is the fund minus the benchmark (whose beta is 1)."],
+["Alpha and beta", "Measured against the benchmark, the active portfolio's alpha…",
+ "Equals the fund's alpha",
+ ["Is always zero", "Equals the fund's alpha minus one", "Equals the benchmark's return"],
+ "The benchmark has no alpha against itself, so subtracting it changes nothing. That's why research is framed in active alpha."],
 
-// ---------------------------------------------------------------- Active positions and IR
-["Active positions and IR", "What are active weights?",
- "The fund's weights minus the benchmark's weights: h = w − b. Because both portfolios are fully invested, active weights sum to zero, so they form a zero-cost portfolio of bets.", ""],
-["Active positions and IR", "What is active return?",
- "The fund's return minus the benchmark's return, which equals the return on the active weights, h′r.", ""],
-["Active positions and IR", "What is active risk (tracking error), and how do you compute it from active weights?",
- "The volatility of active return. With covariance matrix Σ it is √(h′Σh), the same formula as portfolio volatility with active weights in place of total weights.", ""],
-["Active positions and IR", "What is the information ratio?",
- "Expected active return divided by active risk: the reward per unit of risk taken relative to the benchmark. It is the Sharpe ratio of the active portfolio.", ""],
-["Active positions and IR", "What happens to the IR if you double all active weights?",
- "Nothing. Active return and active risk both double, so the IR is unchanged. Scale is chosen by the target tracking error, not by the IR.", ""],
-["Active positions and IR", "Why do investors care so much about IR?",
- "If a fund's active return is uncorrelated with the investor's portfolio, optimally tilting toward it raises the squared Sharpe ratio by the IR squared: S*² = S_p² + IR². A higher IR means a bigger Sharpe gain.", ""],
-["Active positions and IR", "What IRs do real funds achieve?",
- "Most are low. Over 2025 the average U.S. active equity mutual fund had an IR around −0.18 after fees; only about 4% were above 0.5 and about 1.4% above 1.0.", "So an IR near 1 is rare and should be treated with suspicion and humility."],
-["Active positions and IR", "What does the long-only rule mean in active weights?",
- "Total weight cannot go below zero: b + h ≥ 0, so h_i ≥ −b_i. You can underweight a stock at most by its whole benchmark weight.", ""],
-["Active positions and IR", "Why does the long-only rule hurt a signal that mostly picks losers in small stocks?",
- "You can only underweight a stock down to zero, and small stocks hold tiny benchmark weights. So the bets the signal wants are capped at very small sizes.", ""],
+["Active positions and IR", "For a fully invested fund, the active weights h = w − b sum to…",
+ "0",
+ ["1", "The fund's beta", "It depends on the benchmark"],
+ "Both the fund and the benchmark sum to 1, so active weights form a zero-cost portfolio of bets."],
+["Active positions and IR", "Active risk (tracking error) is computed from active weights as…",
+ "√(h′Σh)",
+ ["h′Σh", "The sum of |h|", "√(w′Σw) − √(b′Σb)"],
+ "The same formula as portfolio volatility, with active weights. The difference of two volatilities is not the volatility of the difference."],
+["Active positions and IR", "The information ratio is…",
+ "Expected active return ÷ active risk",
+ ["Expected excess return ÷ total volatility", "Active return ÷ beta", "Alpha ÷ IC"],
+ "The Sharpe ratio of the active portfolio. Its square is how much the investor's squared Sharpe ratio can rise by tilting toward the fund."],
+["Active positions and IR", "You double every active weight. The information ratio…",
+ "Is unchanged",
+ ["Doubles", "Halves", "Falls, because risk grows faster than return"],
+ "Active return and active risk both double. Scale is set by the tracking-error target, not by the IR."],
+["Active positions and IR", "Under the long-only rule, how much can you underweight stock i?",
+ "At most its benchmark weight: h_i ≥ −b_i",
+ ["As much as the risk budget allows", "Up to 5% of the portfolio", "Not at all; long-only funds cannot underweight"],
+ "You can sell a stock down to zero, no further. Small stocks have tiny benchmark weights, which is what limits our signal."],
 
-// ---------------------------------------------------------------- Mean-variance optimization
-["Mean–variance optimization", "What problem does the optimizer solve?",
- "Choose active weights to maximize expected active return minus a penalty for active risk, h′α − (γ/2) h′Vh, subject to the mandate's constraints. Equivalently: maximize h′α with tracking error fixed at a target.", ""],
-["Mean–variance optimization", "How are the usual mandate rules written as constraints?",
- "As linear equalities Ch = c. Self-financing: the active weights sum to zero (h′ι = 0). Zero active beta: h′β = 0. The tracking-error target fixes the scale.", ""],
-["Mean–variance optimization", "How do you solve the problem with only equality constraints?",
- "With Lagrange multipliers. The solution is proportional to V⁻¹(α − C′λ): the unconstrained answer V⁻¹α adjusted so the constraints hold, then scaled to the tracking-error target.", ""],
-["Mean–variance optimization", "Why can't the long-only problem be solved with the same closed form?",
- "No short selling is an inequality constraint. When it binds the closed form no longer applies, so a numerical optimizer is needed.", ""],
-["Mean–variance optimization", "What does the risk aversion γ (or the tracking-error target) control?",
- "The size of the active portfolio, not its direction. In the unconstrained case it scales all positions up or down without changing the IR.", ""],
-["Mean–variance optimization", "What risk model does our optimizer use?",
- "Barra's: V = BFB′ + D, factor exposures B, factor covariance F and specific variances D. It captures risk shared through industries and styles plus each stock's own risk.", ""],
-["Mean–variance optimization", "Why do we also require zero net active weight within groups of similar size and liquidity?",
- "So each bet against a flagged stock is hedged with stocks like it. That matches how the alpha was measured, against similar stocks, and keeps the portfolio from betting on size or illiquidity instead of the collapse.", ""],
+["Mean–variance optimization", "Our optimizer chooses active weights to maximize…",
+ "h′α − (γ/2)h′Vh: expected active return minus a penalty for active risk",
+ ["h′α: expected active return alone", "The total portfolio's Sharpe ratio, ignoring the benchmark", "−h′Vh: it minimizes risk regardless of alpha"],
+ "γ sets how much risk we accept. Equivalently: maximize expected active return with tracking error fixed at a target."],
+["Mean–variance optimization", "'Zero active beta' and 'self-financing' enter the optimizer as…",
+ "Linear equality constraints on h: h′β = 0 and h′ι = 0",
+ ["Inequality constraints", "Parts of the risk penalty", "Conditions on the alphas"],
+ "Linear equalities can be solved in closed form with Lagrange multipliers."],
+["Mean–variance optimization", "Why does the long-only problem need a numerical solver?",
+ "No shorting is an inequality constraint; when it binds, the closed-form solution no longer applies",
+ ["The covariance matrix cannot be inverted", "Our alphas are all negative", "There are too many stocks for a formula"],
+ "With only equality constraints the answer is proportional to V⁻¹(α − C′λ). Once b + h ≥ 0 binds, a solver has to search."],
+["Mean–variance optimization", "Without inequality constraints, changing γ (or the tracking-error target)…",
+ "Scales every position up or down but leaves the information ratio unchanged",
+ ["Changes which stocks are bought and sold", "Raises the IR as risk rises", "Changes the portfolio's beta"],
+ "It controls size, not direction."],
 
-// ---------------------------------------------------------------- Fundamental law and alpha
-["Fundamental law and alpha", "State the fundamental law of active management.",
- "IR = IC × √BR. The information ratio grows with skill (IC, the correlation between forecasts and realized abnormal returns) and with breadth (BR, the number of independent bets).", ""],
-["Fundamental law and alpha", "What is the information coefficient?",
- "The correlation between the signal's forecasts and the abnormal returns that follow. Ours is about 0.015 a month after removing the fund's scores: small per stock, but applied across thousands of stocks.", ""],
-["Fundamental law and alpha", "What is the Grinold–Kahn alpha?",
- "Expected abnormal return = IC × volatility × standardized signal (α = IC·σ·Z). Skill times the size of the opportunity times the signal's strength and direction.", ""],
-["Fundamental law and alpha", "Why does volatility appear in the Grinold–Kahn alpha?",
- "The same signal is worth more in a volatile stock, because its returns move more. Leaving volatility out made our model overrate calm stocks: they delivered only about a third of the predicted return.", ""],
-["Fundamental law and alpha", "How did we apply Grinold–Kahn to an on/off signal?",
- "Our signal is a flag with an age: an event 1–21 or 22–63 days ago. We estimate IC × Z directly as the average gap between flagged and similar stocks per unit of volatility, by age. A stock's alpha is its volatility times that rate.", ""],
-["Fundamental law and alpha", "What is the transfer coefficient?",
- "The share of the signal's expected active Sharpe ratio that survives the constraints: the long-only portfolio's expected IR divided by the expected IR of the same portfolio without the long-only rule. It extends the law to IR = TC × IC × √BR.", "Ours: 0.44 in 2011–2018 and 0.36 in 2019–2024."],
-["Fundamental law and alpha", "Why is our TC well below 1?",
- "The long-only rule caps underweights at the benchmark weight, and the stocks the signal most wants to underweight are small, with tiny benchmark weights.", ""],
-["Fundamental law and alpha", "Why re-estimate the alpha every January from earlier years only?",
- "To avoid look-ahead. Each year's forecast uses only information that existed at the time, as it would in real trading.", ""],
-["Fundamental law and alpha", "Why never allow a positive alpha?",
- "The story only predicts underperformance after a collapse. A positive estimate, which happened for large stocks in early years with few events, is noise, and acting on it made an earlier version buy those stocks and lose money.", ""],
+["Fundamental law and alpha", "The fundamental law of active management says…",
+ "IR = IC × √(breadth)",
+ ["IR = IC × breadth", "IR = Sharpe ratio × IC", "IR = IC ÷ √(breadth)"],
+ "Skill (IC, the correlation between forecasts and outcomes) times the square root of the number of independent bets."],
+["Fundamental law and alpha", "In the Grinold–Kahn alpha α = IC × σ × Z, why does volatility σ appear?",
+ "The same signal is worth more in a volatile stock, because its returns move more",
+ ["Volatile stocks have higher expected returns", "To penalize risky stocks", "To make alpha unit-free"],
+ "Leaving σ out made our model overrate calm stocks: they delivered about a third of the predicted return, the most volatile about one and a half times."],
+["Fundamental law and alpha", "Our long-only portfolio's transfer coefficient is 0.36 in 2019–2024. That means…",
+ "It keeps about 36% of the expected information ratio the same alphas would give without the long-only rule",
+ ["36% of the stocks are held long", "36% of its return comes from the signal", "The signal's IC is 0.36"],
+ "TC is the share of the signal's expected active Sharpe ratio that survives the constraint: IR = TC × IC × √(breadth)."],
+["Fundamental law and alpha", "Why is our transfer coefficient well below 1?",
+ "The signal mostly wants to underweight small stocks, which hold tiny benchmark weights",
+ ["Trading costs eat the alpha", "The risk model is wrong", "The signal is too noisy"],
+ "The long-only rule caps each underweight at the benchmark weight, and that bites hardest in small stocks."],
 
-// ---------------------------------------------------------------- Our design and results
-["Our design and results", "What are the headline results?",
- "Rebalanced daily, the long-only portfolio earns +0.19% a year in 2011–2018 (IR 1.82) and +0.51% a year in the held-back 2019–2024 (IR 1.05, t = 2.6). Without the long-only rule, the IR is 1.17 and then 1.21.", ""],
-["Our design and results", "What is the 'held-back' test?",
- "We built the design on 2011–2018, froze it, and then ran 2019–2024 once. Those years played no part in any design choice, so they are an honest test.", ""],
-["Our design and results", "Why rebalance daily?",
- "Most of the drift comes in the first weeks after an event. Monthly rebalancing reaches most events late: monthly long-only earned −0.02% a year in 2019–2024.", ""],
-["Our design and results", "Why charge no trading costs?",
- "The signal is meant as one input to the fund's combined alpha, where many trades cancel against other signals' trades. Charging it its own costs would overstate what it costs the fund. We report what it would pay in bid–ask spreads if traded alone.", ""],
-["Our design and results", "What do we compare 'no shorting' against?",
- "A no-limits portfolio built from the same alphas with the same other constraints (zero beta, zero net investment, the 5% tracking-error target, hedging among similar stocks). The gap between them is the transfer coefficient.", ""],
-["Our design and results", "Why not just drop flagged stocks from the benchmark?",
- "We tried it: holding the benchmark and selling flagged stocks to zero earns +0.05 to +0.10% a year, not significant. Flagged stocks are small, so dropping them tilts the portfolio toward large stocks, and that noise swamps the effect. The optimizer hedges it.", ""],
-["Our design and results", "Why is the 2019–2024 long-only portfolio bigger than in 2011–2018?",
- "The model learned that large stocks drift too. Until 2015 it gave large flagged stocks no alpha, so it could only sell small stocks with little benchmark weight. By 2019 large stocks had a clearly negative alpha, so there was real benchmark weight to sell. Active risk rose from about 0.1% to about 0.5%.", ""],
-["Our design and results", "What did you change during development, and why?",
- "Four versions. (1) A daily flag that switched off too fast missed most of the drift, so (2) each event got an age and was held for weeks. (3) A noisy positive large-stock alpha made the portfolio buy those stocks, so positive alpha was banned and bets were hedged with similar stocks. (4) Calm stocks under-delivered, so alpha was scaled by volatility. Version 4 was frozen before the held-back test.", ""],
-["Our design and results", "Is the no-limits IR of about 1.2 something we could actually earn?",
- "No. That portfolio holds about seven times its capital in gross positions in small stocks; bid–ask spreads alone would cost about 14–16% a year, more than it earns, before borrow costs. It measures how much information the signal has, not a strategy.", ""],
-["Our design and results", "How big is the long-only result after costs?",
- "About +0.3% a year after spreads in 2019–2024 (IR about 0.6), if traded on its own.", ""],
-
-// ---------------------------------------------------------------- Tough questions
-["Tough questions", "Isn't half a percent a year too small to matter?",
- "On its own, yes, it's small. But it is new information the fund doesn't have, its risk-adjusted return is high, and as one input to the combined alpha its trades net against other signals' trades. That is how we recommend using it.", ""],
-["Tough questions", "How do you know this isn't data mining?",
- "We changed the design four times on 2011–2018, which does flatter those years. That is why we held back 2019–2024, froze the design and ran it once. The daily results held up there.", ""],
-["Tough questions", "How precise is an IR of 1.05 measured over six years?",
- "Not very. The standard error of an IR is about 1/√years, so about 0.4 here. The true long-only IR could be anywhere from roughly 0.2 to 1.9.", ""],
-["Tough questions", "Why is the long-only IR so high when the return is so small?",
- "The portfolio takes tiny, well-hedged positions, so its risk is tiny too (0.1–0.5% a year). A high return per unit of risk does not mean a large return, and we cannot scale it up because the long-only rule binds.", ""],
-["Tough questions", "Could stale prices be inflating your daily results?",
- "Possibly; we haven't checked yet. Thinly traded stocks have stale prices, which make daily returns look smoother and daily risk look smaller than it really is. The check is to recompute the IR from monthly sums of the daily returns.", ""],
-["Tough questions", "Doesn't this just overlap with idiosyncratic volatility?",
- "The fund's idiosyncratic volatility score is one of the six scores we remove from the signal before anything else, so the signal gets credit only for information beyond it.", ""],
-["Tough questions", "What evidence would prove the story wrong?",
- "Returns that rise after a collapse, an effect as strong in large, liquid stocks as in small ones, an effect driven by price moves rather than falling volume, or failure in future held-out data. If we had ownership data, no link to how many institutions held the stock before would also count against it.", ""],
-["Tough questions", "Why not just short these stocks?",
- "The fund is long-only. And even for a fund that can short, borrowing small, illiquid stocks is expensive and often impossible, which is exactly why the drift exists.", ""],
-["Tough questions", "How much benchmark weight do flagged stocks hold?",
- "About 9% when you count every stock with an event in the last 63 days, mostly spread across many small positions. That limits how much a long-only fund can underweight.", ""],
+["Our design and results", "Why do we rebalance daily rather than monthly?",
+ "Most of the drift comes in the first weeks; the monthly long-only portfolio earned nothing in 2019–2024",
+ ["Daily trading lowers costs", "The risk model only updates daily", "Monthly data was not available"],
+ "Daily long-only earned +0.51% a year in 2019–2024 (IR 1.05); monthly, −0.02%."],
+["Our design and results", "What makes 2019–2024 an honest test?",
+ "The design was frozen first, and those years were run only once",
+ ["It's a longer period than 2011–2018", "Markets were calmer then", "The alphas were fitted on 2019–2024 data"],
+ "Each January the alphas are re-estimated from earlier years only, and none of the design choices used 2019–2024."],
+["Our design and results", "Why does simply dropping flagged stocks from the benchmark barely earn anything?",
+ "Dropping them tilts the portfolio toward large stocks, and that noise swamps the effect",
+ ["Flagged stocks aren't in the benchmark", "Funds are not allowed to drop stocks", "The effect disappears without daily trading"],
+ "It earned +0.05 to +0.10% a year, not significant. The optimizer hedges that tilt and sizes each bet by its alpha and risk."],
 ];
 
-const cats = [...new Set(BANK.map(q => q[0]))];
-const catBox = document.getElementById("cats");
-cats.forEach(c => {
-  const n = BANK.filter(q => q[0] === c).length;
-  catBox.insertAdjacentHTML("beforeend", `<label><input type="checkbox" value="${c}" checked> ${c} (${n})</label>`);
-});
-const chosen = () => [...catBox.querySelectorAll("input:checked")].map(i => i.value);
-function setAll(on) { catBox.querySelectorAll("input").forEach(i => i.checked = on); }
-function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+const KEY = "liquidity-collapse-missed";
+const topics = [...new Set(QS.map(q => q[0]))];
+const filters = document.getElementById("filters");
+filters.innerHTML = "Topics: " + topics.map(t => `<label><input type="checkbox" value="${t}" checked onchange="startTopics()"> ${t}</label>`).join("");
+const chosenTopics = () => [...filters.querySelectorAll("input:checked")].map(i => i.value);
 
-let queue = [], total = 0, firstTry = 0, seen = new Set(), current = null, shown = false;
+let round = [], pos = 0, right = 0, misses = [], lastMisses = [], answered = false, roundNo = 0;
+const saved = () => JSON.parse(localStorage.getItem(KEY) || "[]");
+const save = s => localStorage.setItem(KEY, JSON.stringify([...new Set(s)]));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
-function startDrill() {
-  const cs = chosen();
-  queue = shuffle(BANK.map((q, i) => i).filter(i => cs.includes(BANK[i][0])));
-  total = queue.length; firstTry = 0; seen = new Set();
-  document.getElementById("list").classList.add("hidden");
-  document.getElementById("drill").classList.remove("hidden");
-  next();
+function startOver() {
+  save([]);
+  const t = chosenTopics();
+  startRound(QS.map((_, i) => i).filter(i => t.includes(QS[i][0])));
+}
+
+function startTopics() {
+  const t = chosenTopics();
+  startRound(QS.map((_, i) => i).filter(i => t.includes(QS[i][0])));
+}
+
+function startRound(indices) {
+  round = shuffle([...indices]); pos = 0; right = 0; misses = []; roundNo++;
+  document.getElementById("banner").classList.add("hidden");
+  document.getElementById("end").classList.add("hidden");
+  if (!round.length) { finish(); return; }
+  document.getElementById("quiz").classList.remove("hidden");
+  show();
+}
+
+function show() {
+  answered = false;
+  const [topic, q, correct, wrong] = QS[round[pos]];
+  document.getElementById("tag").textContent = topic;
+  document.getElementById("question").textContent = q;
+  const opts = shuffle([correct, ...wrong]);
+  document.getElementById("choices").innerHTML = opts.map((o, k) =>
+    `<button class="choice" data-right="${o === correct}" onclick="answer(this)"><span class="key">${k + 1}</span>${esc(o)}</button>`).join("");
+  document.getElementById("why").classList.add("hidden");
+  document.getElementById("next").classList.add("hidden");
+  status();
+}
+
+function answer(btn) {
+  if (answered) return;
+  answered = true;
+  const id = round[pos], ok = btn.dataset.right === "true";
+  document.querySelectorAll(".choice").forEach(b => { b.disabled = true; if (b.dataset.right === "true") b.classList.add("right"); });
+  const missed = saved().filter(i => i !== id);
+  if (ok) { right++; save(missed); }
+  else { btn.classList.add("wrong"); misses.push(id); save([...missed, id]); }
+  const why = document.getElementById("why");
+  why.innerHTML = `<b class="${ok ? "ok" : "no"}">${ok ? "Correct." : "Not quite."}</b> ${esc(QS[id][4])}`;
+  why.classList.remove("hidden");
+  document.getElementById("next").classList.remove("hidden");
+  status();
 }
 
 function next() {
-  const body = document.getElementById("cardBody"), done = document.getElementById("done");
-  updateStatus();
-  if (!queue.length) {
-    body.classList.add("hidden"); done.classList.remove("hidden");
-    document.getElementById("doneText").textContent = total
-      ? `${firstTry} of ${total} right on the first try.` : "Pick at least one category.";
-    current = null; return;
-  }
-  body.classList.remove("hidden"); done.classList.add("hidden");
-  current = queue.shift(); shown = false;
-  const [cat, q, a, f] = BANK[current];
-  document.getElementById("tag").textContent = cat;
-  document.getElementById("question").textContent = q;
-  const ans = document.getElementById("answer");
-  ans.innerHTML = esc(a) + (f ? `<div class="follow"><b>Follow-up:</b> ${esc(f)}</div>` : "");
-  ans.classList.add("hidden");
-  document.getElementById("hint").classList.remove("hidden");
-  document.getElementById("reveal").classList.remove("hidden");
-  document.getElementById("got").classList.add("hidden");
-  document.getElementById("again").classList.add("hidden");
+  if (!answered) return;
+  pos++;
+  if (pos < round.length) show(); else finish();
 }
 
-function reveal() {
-  if (current === null || shown) return;
-  shown = true;
-  document.getElementById("answer").classList.remove("hidden");
-  document.getElementById("hint").classList.add("hidden");
-  document.getElementById("reveal").classList.add("hidden");
-  document.getElementById("got").classList.remove("hidden");
-  document.getElementById("again").classList.remove("hidden");
+function finish() {
+  document.getElementById("quiz").classList.add("hidden");
+  const end = document.getElementById("end");
+  end.classList.remove("hidden");
+  lastMisses = [...misses];
+  const n = round.length;
+  document.getElementById("endTitle").textContent = !n ? "No questions in the chosen topics."
+    : misses.length ? `${right} of ${n} right` : `All ${n} right.`;
+  document.getElementById("endText").textContent = !n ? "" : misses.length
+    ? "Here's what you missed. Drill these until they stick." : "Nothing missed this round.";
+  document.getElementById("missedList").innerHTML = misses.map(i =>
+    `<div>${esc(QS[i][1])}<span>${esc(QS[i][2])}</span></div>`).join("");
+  const b = document.getElementById("drillMisses");
+  b.textContent = `Drill my misses (${misses.length})`;
+  b.classList.toggle("hidden", !misses.length);
+  document.getElementById("bar").style.width = "100%";
 }
 
-function rate(ok) {
-  if (current === null || !shown) return;
-  if (ok && !seen.has(current)) firstTry++;
-  seen.add(current);
-  if (!ok) queue.splice(Math.min(queue.length, 3 + Math.floor(Math.random() * 3)), 0, current);  // comes back in a few cards
-  next();
-}
-
-function updateStatus() {
-  const left = queue.length + (current === null ? 0 : 0);
-  const finished = total - queue.length;
-  document.getElementById("bar").style.width = total ? `${100 * finished / total}%` : "0";
-  document.getElementById("left").textContent = total ? `${queue.length} cards left` : "";
-  document.getElementById("score").textContent = total ? `${firstTry} right on first try` : "";
-}
-
-function showList() {
-  const cs = chosen();
-  const list = document.getElementById("list");
-  list.innerHTML = cs.map(c => `<h2>${c}</h2>` + BANK.filter(q => q[0] === c).map(([_, q, a, f]) =>
-    `<div class="list-item"><div class="q">${esc(q)}</div><div class="a">${esc(a)}${f ? `<div class="follow"><b>Follow-up:</b> ${esc(f)}</div>` : ""}</div></div>`).join("")).join("");
-  document.getElementById("drill").classList.add("hidden");
-  list.classList.remove("hidden");
+function status() {
+  const n = round.length, done = pos + (answered ? 1 : 0);
+  document.getElementById("bar").style.width = n ? `${100 * done / n}%` : "0";
+  document.getElementById("where").textContent = `Round ${roundNo} · question ${Math.min(pos + 1, n)} of ${n}`;
+  document.getElementById("score").textContent = `${right} right so far`;
 }
 
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT") return;
-  if (e.code === "Space") { e.preventDefault(); reveal(); }
-  else if (e.key === "1") rate(true);
-  else if (e.key === "2") rate(false);
+  const k = parseInt(e.key, 10);
+  if (k >= 1 && k <= 4) { const b = document.querySelectorAll(".choice")[k - 1]; if (b) answer(b); }
+  else if (e.key === "Enter") next();
 });
 
-startDrill();
+// On opening: pick up questions missed last time, if any.
+const carry = saved().filter(i => i < QS.length);
+if (carry.length) {
+  const banner = document.getElementById("banner");
+  banner.innerHTML = `You missed ${carry.length} question${carry.length > 1 ? "s" : ""} last time. ` +
+    `<button class="btn primary" style="margin:0 6px" onclick="startRound(saved())">Drill them</button>` +
+    `<button class="btn" style="margin:0" onclick="startOver()">Start over</button>`;
+  startTopics();
+  banner.classList.remove("hidden");
+} else {
+  startOver();
+}
 </script>
 </body>
 </html>

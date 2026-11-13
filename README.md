@@ -22,7 +22,7 @@ effect is real but small, so we recommend it as one input to the fund's combined
 | `paper/paper.pdf` | The write-up: idea, evidence, how the signal is built, results |
 | `slides/slides.pdf` | The presentation |
 | `notebooks/liquidity_events.ipynb` | The study as a notebook, with the code that produced each result |
-| `question-bank.html` | Practice questions on the theory, optimization, Sharpe and information ratios, and our results (open in a browser) |
+| `question-bank.html` | A 30-question multiple-choice drill on the theory, optimization, Sharpe and information ratios, and our results; missed questions come back until you get them right (open in a browser) |
 | `src/liquidity_collapse/` | The pipeline: signal (`daily_signal.py`), events and alpha (`event_alpha.py`), optimizer and backtests (`optimize.py`), command line (`cli.py`) |
 | `scripts/` | Event study, robustness checks, the avoid-list comparison, and `build_slides.py` (charts and tables for the paper and slides) |
 | `config.toml` | Data paths and the study's settings |
