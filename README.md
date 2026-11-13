@@ -22,7 +22,6 @@ The effect is real but small, so we recommend it as one input to the fund's comb
 | `slides/slides_fixed_gamma.pdf` | The presentation (final design) |
 | `slides/speaker-notes.md` | The speaker script, slide by slide, with likely questions |
 | `slides/slides.pdf`, `paper/` | The earlier design (5% risk target, no trading costs) |
-| `question-bank.html` | A 20-question multiple-choice drill on the theory and our results (open in a browser) |
 | `src/liquidity_collapse/` | The pipeline: signal (`daily_signal.py`), events and alpha (`event_alpha.py`), optimizer and backtests (`optimize.py`), command line (`cli.py`) |
 | `scripts/` | Event study, robustness checks, the avoid-list comparison, turnover breakdown, results summary (`gamma_costs_summary.py`), and `build_slides.py` |
 | `config.toml` | Data paths and the study's settings |
