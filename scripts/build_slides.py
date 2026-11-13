@@ -625,8 +625,9 @@ def deck() -> str:
 \begin{frame}{What is a liquidity event?}
 \textbf{Illiquidity} (Amihud): price move per dollar traded, last 21 days
 \[ \mathrm{ILLIQ}_{i,t} = \frac{1}{21}\sum_{d=t-20}^{t} \frac{|r_{i,d}|}{\text{dollar volume}_{i,d}} \]
-\textbf{Shock}: against the stock's own past year
-\[ x_{i,t} = \log \mathrm{ILLIQ}_{i,t} - \frac{1}{12}\sum_{k=1}^{12} \log \mathrm{ILLIQ}_{i,t-21k} \]
+\textbf{Shock}: illiquidity now vs the stock's own past year
+\[ x_{i,t} = \log\!\left(\frac{\mathrm{ILLIQ}_{i,t}}{\text{past-year average of }\mathrm{ILLIQ}_{i}}\right) \]
+{\scriptsize\hfill past-year average: geometric mean of the 12 previous 21-day values\par}
 \textbf{Remove the fund's six scores} $f_{i,t}$, then standardize across stocks
 \[ x_{i,t} = b_t^\top f_{i,t} + e_{i,t}, \qquad z_{i,t} = \frac{e_{i,t} - \bar e_t}{\mathrm{sd}_t(e)} \]
 \textbf{Event}: $z_{i,t}$ in the day's top 5\%, with no flag in the previous 21 trading days

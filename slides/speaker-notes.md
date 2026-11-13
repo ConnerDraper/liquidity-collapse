@@ -17,7 +17,7 @@ The slides carry only short phrases; this is what we say. Numbers match the slid
 
 ## 3. What is a liquidity event?
 - **Illiquidity** is the Amihud measure: how much the price moves per dollar traded, averaged over the last 21 days. High means a little trading moves the price a lot.
-- **Shock:** we compare it with the stock's own past year: its log illiquidity now minus its average over the previous twelve 21-day windows. A stock that's always illiquid doesn't count; only a *change* does.
+- **Shock:** we compare it with the stock's own past year: the log of illiquidity now divided by its past-year average. Above zero means harder to trade than usual for this stock. (The average is a geometric mean of the previous twelve 21-day values, which is why the log of the ratio is exact.) A stock that's always illiquid doesn't count; only a *change* does.
 - **Remove the fund's six scores:** each day we regress the shock on the fund's six scores (ivol, momentum, reversal, Barra momentum, beta, Barra reversal) and keep the residual, so we only count information the fund doesn't already have. Then we standardize across stocks.
 - **Event:** a stock lands in the top 5% that day and wasn't flagged in the previous 21 trading days. The "age" of an event is the number of trading days since.
 
