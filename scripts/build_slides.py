@@ -481,7 +481,7 @@ def deck() -> str:
 
 \title{When Trading Dries Up}
 \subtitle{A liquidity signal for a long-only fund}
-\author{Silver Fund Research}
+\author{Group 7 \\ Silver Fund}
 \date{Built on 2011--2018""" + (r", tested on held-back 2019--2024" if has_holdout() else "") + r"""}
 
 \begin{document}
