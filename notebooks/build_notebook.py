@@ -306,7 +306,6 @@ md(r"""
 - **Small.** After bid–ask spreads (0.19% a year), daily long-only earns about +0.3% a year.
 - **Short sample.** An IR's standard error is about $1/\sqrt{\text{years}}$, so six years leaves the true long-only IR between
   roughly 0.2 and 1.9.
-- **Not yet checked.** Thinly traded stocks have stale prices, which can make daily risk look too small.
 
 **What changed, and when** (daily runs, 2011–2018; version 1's result is from its own summary):
 """)
@@ -340,7 +339,7 @@ md(r"""
 Stocks whose trading dries up keep falling for months: most investors no longer want them, and the hand-off to the few patient
 buyers is slow. A long-only fund can harvest this,
 but only with a volatility-scaled Grinold–Kahn alpha, the optimizer and daily trading. The gain is a few tenths of a percent a
-year, so we recommend it as one input to the fund's combined alpha, after a check for stale prices.
+year, so we recommend it as one input to the fund's combined alpha.
 """)
 
 

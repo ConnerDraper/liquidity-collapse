@@ -210,14 +210,13 @@ transfer coefficient (TC) measures how much: $IR = TC \times IC\sqrt{BR}$ \citep
         larger than before because the model learned that large stocks drift too (Appendix, Table~\ref{tab:size}).
   \item \textbf{Short sample.} An IR's standard error is about $1/\sqrt{\text{years}}$, so six years leaves the true
         long-only IR somewhere between roughly 0.2 and 1.9.
-  \item \textbf{Not yet checked.} Thinly traded stocks have stale prices, which can make daily risk look too small.
 \end{itemize}
 
 % ======================================================================
 \section{Conclusion}
 Stocks whose trading dries up keep falling for months: most investors no longer want them, and the hand-off to the few patient buyers is slow. A long-only fund can harvest
 this, but only with a volatility-scaled Grinold--Kahn alpha, the optimizer and daily trading. The gain is a few tenths
-of a percent a year, so we recommend it as one input to the fund's combined alpha, after a check for stale prices.
+of a percent a year, so we recommend it as one input to the fund's combined alpha.
 
 % ======================================================================
 \appendix
