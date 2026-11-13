@@ -499,6 +499,29 @@ def short_grid_table(size=r"\small") -> str:
     return "\n".join(lines)
 
 
+def ir_puzzle_table(size=r"\small") -> str:
+    """Fixed-gamma deck appendix: limited shorting vs long-only, before and after trading costs, both periods."""
+    import glob
+    folders = [("2011--18", PAN)] + ([("2019--24", HOLD)] if has_holdout() else [])
+    lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{llrrrrrrr}", r"\toprule",
+             r"Daily & & Risk & Return before & Spreads & Return after & IR before & IR after & Turnover \\",
+             r" & & & costs, \%/yr & paid & costs, \%/yr & costs & costs & (one-way) \\", r"\midrule"]
+    ir = lambda x: x.mean() / x.std() * 252 ** 0.5
+    for k, (label, an) in enumerate(folders):
+        if k:
+            lines.append(r"\midrule")
+        series = pl.read_parquet(an / "return_series.parquet")
+        summ = {r["run"]: r for r in pl.read_csv(an / "summary.csv").iter_rows(named=True)}
+        for n, name in (("SC-D", "Limited shorting"), ("CC-D", "No shorting")):
+            x = series.filter(pl.col("run") == n)
+            g, net = x["gross"], x["net"]
+            lines.append(f"{label if n == 'SC-D' else ''} & {name} & {net.std() * 252 ** 0.5 * 100:.2f}\\% & {num(g.mean() * 25200, '+.2f')} & "
+                         f"{summ[n]['cost_per_year'] * 100:.2f} & {num(net.mean() * 25200, '+.2f')} & {num(ir(g), '.2f')} & {num(ir(net), '.2f')} & "
+                         f"{summ[n]['mean_turnover'] * 126:.1f}$\\times$ \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}}"]
+    return "\n".join(lines)
+
+
 def constraints_table() -> str:
     """Slide 8: which constraints each portfolio on the backtest slides has."""
     ck, no = r"$\checkmark$", "--"
@@ -667,7 +690,8 @@ def deck() -> str:
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.\par}
+{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.""" + (
+    r" Long-only runs at only 0.1--0.3\% risk: the chart scales it up about 5--10$\times$, which it can't do in practice." if FIXED_DECK else "") + r"""\par}
 \end{frame}
 
 \begin{frame}{Monthly rebalancing, """ + period + r"""}
@@ -681,7 +705,8 @@ def deck() -> str:
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.\par}
+{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.""" + (
+    r" Long-only runs at only 0.1--0.3\% risk: the chart scales it up about 5--10$\times$, which it can't do in practice." if FIXED_DECK else "") + r"""\par}
 \end{frame}
 
 \begin{frame}{How much to trust it}
@@ -701,6 +726,21 @@ def deck() -> str:
 
 \begin{frame}[plain]\vfill\centering{\Large\textbf{\color{banner}Appendix}}\vfill\end{frame}
 
+""" + (r"""\begin{frame}{Appendix: why does long-only have the higher IR?}
+\centering
+""" + ir_puzzle_table() + r"""
+
+\medskip
+\raggedright
+\begin{itemize}
+\item Before costs, the two have about the same IR
+\item Limited shorting trades about 6$\times$ a year, mostly in small stocks: spreads take about half its return
+\item Long-only trades about 0.5$\times$ a year in larger stocks: spreads cost almost nothing
+\item Long-only takes only 0.1--0.3\% risk: higher IR after costs, but less return
+\end{itemize}
+\end{frame}
+
+""" if FIXED_DECK else "") + r"""
 \slide{ic_by_year.png}
 
 \begin{frame}{Appendix: what did we change, and when?}
