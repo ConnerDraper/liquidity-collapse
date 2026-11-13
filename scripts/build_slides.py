@@ -25,13 +25,15 @@ HOLD = ROOT / "output/optimizer_holdout/analysis"  # frozen design run on 2019-2
 # slides/slides_fixed_gamma.tex with its own pair figures; the current deck and figures are left alone.
 FIXED_DECK = os.environ.get("FIXED_GAMMA") == "1"
 PAN = ROOT / "output/optimizer_fixed_gamma/analysis" if FIXED_DECK else AN  # runs on the backtest slides
+if FIXED_DECK:
+    HOLD = ROOT / "output/optimizer_fixed_gamma_holdout/analysis"  # the fixed-gamma design, frozen, on 2019-2024
 SUFFIX = "_fg" if FIXED_DECK else ""
 
 
 def has_holdout() -> bool:
     """Holdout results go into the slides only when asked for: SHOW_HOLDOUT=1."""
     files = ("return_series.parquet", "summary.csv", "transfer_coefficient.csv", "implied_costs.json")
-    return not FIXED_DECK and os.environ.get("SHOW_HOLDOUT") == "1" and all((HOLD / f).exists() for f in files)
+    return os.environ.get("SHOW_HOLDOUT") == "1" and all((HOLD / f).exists() for f in files)
 SLIDES = ROOT / "slides"
 PAPER_FIG = ROOT / "paper/figures"
 BLUE, ORANGE, AQUA, GREY = "#2a78d6", "#eb6834", "#1baf7a", "#8a8a8a"
@@ -106,7 +108,7 @@ def fig_ic_by_year(paper=False):
     zero_line(ax)
     ax.set_xticks(d["year"].to_list())
     ax.tick_params(axis="x", labelrotation=0)
-    finish(fig, ax, "ic_by_year", paper, "Rank IC with next-month Barra specific return, fund's six scores removed. Mean 0.015 (t 6.0); 12 of 13 years positive.",
+    finish(fig, ax, "ic_by_year", paper, "IC: how well our score ranks next month's stock-specific returns, after removing the fund's six scores. Positive in 12 of 13 years.",
            None, "Mean monthly IC (x100)", legend=False)
 
 
@@ -123,7 +125,7 @@ def fig_matched_drift(paper=False):
     zero_line(ax)
     ax.set_xticks(ks)
     finish(fig, ax, "matched_drift", paper,
-           "Return after a liquidity event minus similar stocks (same size and liquidity) on the same day; 2006–2018. All events: t = -3.6 at one year.",
+           "Flagged stocks minus similar stocks (same size, same liquidity before the event), 2006–2018.",
            "Trading days since the event", "Cumulative gap (%)")
 
 
@@ -147,7 +149,7 @@ def fig_where(paper=False):
     if not paper:
         x0, y0, w0, h0 = style.WIDE_RECT
         ax.set_position((0.22, y0, w0 + x0 - 0.22, h0))
-    finish(fig, ax, "where", paper, "Gap against similar stocks one year after the event, by size (blue) and by how illiquid the stock was before (orange); 2006–2018.",
+    finish(fig, ax, "where", paper, "One year after the event, 2006–2018. Blue: by size. Orange: by how illiquid the stock already was.",
            "Gap against similar stocks after one year (%)", "", legend=False)
 
 
@@ -250,7 +252,7 @@ def fig_vol_check(paper=False):
     ax.set_ylim(0, max(ratio) * 1.18)
     ax.grid(False, axis="x")
     finish(fig, ax, "vol_check", paper,
-           "An earlier version left volatility out of the Grinold–Kahn alpha. Bars: actual return as % of predicted, 2011–2018. So alpha now scales with volatility.",
+           "Actual drift as a share of what we predicted, by volatility group (earlier version, 2011–2018).",
            "Stocks grouped by volatility (1 = calmest fifth)", "Actual / predicted (%)", legend=False)
 
 
@@ -319,15 +321,15 @@ def run_metrics(n: str, an: Path = AN) -> dict:
     row = s.filter(pl.col("run") == n).row(0, named=True)
     return {"gross": gross.mean() * k * 100, "net": net.mean() * k * 100, "risk": vol * 100, "ir": ir, "t": ir * years ** 0.5,
             "dd": float((cum - np.maximum.accumulate(np.r_[0.0, cum])[1:]).min()) * 100,
-            "pos": f"{int((by_year > 0).sum())}/{len(by_year)}", "turnover": row["mean_turnover"] * k,
+            "pos": f"{int((by_year > 0).sum())}/{len(by_year)}", "turnover": row["mean_turnover"] * k / 2,  # one-way: half of buys + sells
             "cost": row["cost_per_year"] * 100, "tc": tc.get(n)}
 
 
 def portfolio_table(size=r"\scriptsize") -> str:
     """All runs: gross and net return, realized risk, IR (t), drawdown, positive years, turnover, costs, TC (paper)."""
     lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{lrrrrrrrrr}", r"\toprule",
-             r" & Gross & Net & Active & & Max & Positive & Turnover & Costs & \\",
-             r"Run & \%/yr & \%/yr & risk & IR ($t$) & drawdown & years & $\times$/yr & \%/yr & TC \\", r"\midrule"]
+             r" & Gross & Net & Active & & Max & Positive & Turnover, & Costs & \\",
+             r"Run & \%/yr & \%/yr & risk & IR ($t$) & drawdown & years & one-way $\times$/yr & \%/yr & TC \\", r"\midrule"]
     have = set(pl.read_csv(AN / "summary.csv")["run"].to_list())
     for group, runs in (("No limits", ["U-D", "U-M"]), ("Long-only", ["C-D", "CC-D", "C-M", "CC-M"])):
         lines.append(rf"\multicolumn{{10}}{{l}}{{\textit{{{group}}}}} \\")
@@ -353,7 +355,7 @@ def pair_table(freq: str, size=r"\scriptsize") -> str:
             ("IR ($t$)", lambda m: f"{num(m['ir'], '.2f')} ({num(m['t'], '.1f')})"),
             ("Max drawdown", lambda m: f"{num(m['dd'], '.2f')}\\%"),
             ("Positive years", lambda m: m["pos"]),
-            ("Turnover, $\\times$/yr", lambda m: f"{m['turnover']:.1f}"),
+            ("Turnover (one-way), $\\times$/yr", lambda m: f"{m['turnover']:.1f}"),
             ("TC vs no limits", lambda m: f"{m['tc']:.2f}" if m["tc"] is not None else "ref."),
             (("Spread cost, \\%/yr" if FIXED_DECK else "Spread cost if traded alone, \\%/yr"), lambda m: f"{m['spread']:.2f}")]
     k = len(PAIRS[freq])
@@ -382,6 +384,24 @@ def avoid_table(size=r"\small") -> str:
     m = run_metrics(LO_RUN, PAN)
     lines += [r"\midrule", f"Optimizer, daily, no shorting{', costs' if FIXED_DECK else ''} & --- &{num(m['net'], '+.2f')}\\%/yr & {m['risk']:.2f}\\% & "
               f"{num(m['ir'], '.2f')} ({num(m['t'], '.1f')}) & --- \\\\", r"\bottomrule", r"\end{tabular}}"]
+    return "\n".join(lines)
+
+
+def avoid_compare_table(size=r"\small") -> str:
+    """Slide: just avoiding flagged stocks vs the optimizer. The avoid list's active return is split into the part earned
+    on the stocks themselves (stock-specific) and the part from factor tilts the reweighting creates."""
+    a = pl.read_csv(OPT / "avoid/avoid_summary.csv").filter(pl.col("portfolio").str.starts_with("Liquidity"))
+    lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{lrrrrrr}", r"\toprule",
+             r"2011--2018 & Weight & Return & Stock- & Factor & Risk & IR ($t$) \\",
+             r" & moved & \%/yr & specific & tilts & & \\", r"\midrule"]
+    for r in a.iter_rows(named=True):
+        lines.append(f"Just avoid them, {r['portfolio'].split(', ')[1]} & {r['avoided_benchmark_weight_pct']:.1f}\\% & "
+                     f"{num(r['active_return_pct'], '+.2f')} & {num(r['specific_return_pct'], '+.2f')} & "
+                     f"{num(r['active_return_pct'] - r['specific_return_pct'], '+.2f')} & {r['active_risk_pct']:.2f}\\% & "
+                     f"{num(r['ir'], '.2f')} ({num(r['t'], '.1f')}) \\\\")
+    m = run_metrics(LO_RUN, PAN)
+    lines += [r"\midrule", f"Optimizer, long-only{' + costs' if FIXED_DECK else ''}, daily & --- & {num(m['net'], '+.2f')} & --- & --- & "
+              f"{m['risk']:.2f}\\% & {num(m['ir'], '.2f')} ({num(m['t'], '.1f')}) \\\\", r"\bottomrule", r"\end{tabular}}"]
     return "\n".join(lines)
 
 
@@ -468,9 +488,9 @@ def short_grid_table(size=r"\small") -> str:
     """Appendix: the short limits tried on 2011-2018 and the one kept."""
     g = pl.read_csv(AN / "short_limit_grid.csv").sort("limit")
     lines = [size, r"\begin{tabular}{lrrrr}", r"\toprule",
-             r"Short limit per stock & Active risk (model) & IR & Turnover, $\times$/yr & Monthly IR \\", r"\midrule"]
+             r"Short limit per stock & Active risk (model) & IR & Turnover (one-way), $\times$/yr & Monthly IR \\", r"\midrule"]
     for r in g.iter_rows(named=True):
-        cells = [rf"{r['limit'] * 100:g}\%", rf"{r['risk_ex_ante_d'] * 100:.2f}\%", num(r["ir_d"], ".2f"), f"{r['turnover_d']:.0f}",
+        cells = [rf"{r['limit'] * 100:g}\%", rf"{r['risk_ex_ante_d'] * 100:.2f}\%", num(r["ir_d"], ".2f"), f"{r['turnover_d'] / 2:.0f}",
                  num(r["ir_m"], ".2f")]
         if SHORT and abs(r["limit"] - SHORT) < 1e-12:
             cells = [rf"\textbf{{{c}}}" for c in cells]
@@ -502,7 +522,7 @@ def gamma_costs_table(size=r"\scriptsize") -> str:
     """Appendix of the fixed-gamma deck: every portfolio with and without trading costs, 2011-2018."""
     g = pl.read_csv(PAN / "gamma_costs.csv")
     lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{llrrrrr}", r"\toprule",
-             r" & & Return, \%/yr & IR ($t$) & Risk & Turnover, $\times$/yr & Spread cost, \%/yr \\", r"\midrule"]
+             r" & & Return, \%/yr & IR ($t$) & Risk & Turnover (one-way), $\times$/yr & Spread cost, \%/yr \\", r"\midrule"]
     for k, freq in enumerate(("daily", "monthly")):
         if k:
             lines.append(r"\midrule")
@@ -510,7 +530,7 @@ def gamma_costs_table(size=r"\scriptsize") -> str:
         for r in g.filter(pl.col("frequency") == freq).iter_rows(named=True):
             cost = f"{r['spread_cost_pct']:.2f}" + ("" if r["costs"] == "with costs" else "*")
             lines.append(f"{tex_escape(r['portfolio'])} & {r['costs']} & {num(r['net_pct'], '+.2f')} & {num(r['ir'], '.2f')} ({num(r['t'], '.1f')}) & "
-                         f"{r['risk_realized_pct']:.2f}\\% & {r['turnover_per_year']:.0f} & {cost} \\\\")
+                         f"{r['risk_realized_pct']:.2f}\\% & {r['turnover_per_year'] / 2:.1f} & {cost} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}}"]
     return "\n".join(lines)
 
@@ -527,26 +547,24 @@ def deck() -> str:
     hold_note = (r" Holdout: design frozen before it was run; settings re-estimated each January from earlier years only."
                  if has_holdout() else "")
     if has_holdout():
-        hd = {n: run_metrics(n, HOLD) for n in ("U-D", "C-D", "U-M", "C-M")}
-        after = hd["C-D"]["net"] - j(HOLD / "implied_costs.json")["C-D"]["cost_pct_per_year"]
+        hd = {n: run_metrics(n, HOLD) for n in set(PAIRS["daily"] + PAIRS["monthly"] + [LO_RUN])}
+        after = hd[LO_RUN]["net"] if FIXED_DECK else hd["C-D"]["net"] - j(HOLD / "implied_costs.json")["C-D"]["cost_pct_per_year"]
         se = 6 ** -0.5
-        bottom = (r"\item \textbf{Yes, it is real.} Stocks whose trading dries up keep falling: about 3\% behind similar stocks over the next year." + "\n"
-                  + r"\item \textbf{Just avoiding them doesn't help:} " + pct(av_lo) + " to " + pct(av_hi) + r" a year, not significant." + "\n"
-                  + r"\item \textbf{Betting against them daily with the optimizer works}, also on 2019--24 data we held back: long-only "
-                  + pct(hd["C-D"]["net"]) + f" a year (IR {hd['C-D']['ir']:.2f})." + "\n"
-                  + r"\item \textbf{It is small:} about " + pct(after) + r" a year after trading costs. Use it as one input to the fund's alpha.")
-        trust = (r"\item We built it on 2011--18 in four rounds, then froze it and ran 2019--24 \textbf{once}." + "\n"
-                 + r"\item In 2019--24 the long-only portfolio is bigger (" + f"{hd['C-D']['risk']:.2f}" + r"\% risk vs " + f"{dv['C-D']['risk']:.2f}"
-                 + r"\%): the model learned that large stocks drift too, so it had more weight to sell (appendix)." + "\n"
-                 + r"\item After trading costs, long-only earns about " + pct(after) + f" a year (IR about {after / hd['C-D']['risk']:.1f})." + "\n"
-                 + r"\item Six years is short (standard error of an IR $\approx 1/\sqrt{\text{years}}$): the true IR could be anywhere from about " + f"{hd['C-D']['ir'] - 2 * se:.1f} to {hd['C-D']['ir'] + 2 * se:.1f}.")
+        bottom = (r"\item \textbf{Real:} flagged stocks lag similar stocks by about 3\% over a year" + "\n"
+                  + r"\item \textbf{Just avoiding them:} right direction, too noisy" + "\n"
+                  + r"\item \textbf{Optimizer, long-only" + (" after costs" if FIXED_DECK else "") + r":} " + pct(hd[LO_RUN]["net"])
+                  + f" a year, IR {hd[LO_RUN]['ir']:.2f}, on held-back 2019--24" + "\n"
+                  + r"\item \textbf{Small:} one input to the fund's alpha")
+        trust = (r"\item Built on 2011--18, frozen, then run on 2019--24 \textbf{once}" + "\n"
+                 + r"\item Long-only after costs, 2019--24: " + pct(after) + f" a year, IR {hd[LO_RUN]['ir']:.2f}" + "\n"
+                 + r"\item Six years is short: true IR likely between " + num(hd[LO_RUN]['ir'] - 2 * se, ".1f") + " and " + num(hd[LO_RUN]['ir'] + 2 * se, ".1f"))
     else:
-        bottom = (r"\item \textbf{Yes, it is real.} Stocks whose trading dries up keep falling: about 3\% behind similar stocks over the next year." + "\n"
-                  + r"\item \textbf{Just avoiding them doesn't help:} " + pct(av_lo) + " to " + pct(av_hi) + r" a year, not significant." + "\n"
-                  + r"\item \textbf{Betting against them daily with the optimizer works:} long-only" + (" after trading costs " if FIXED_DECK else " ")
-                  + pct(dv[LO_RUN]["net"]) + f" a year (IR {dv[LO_RUN]['ir']:.2f})." + "\n"
-                  + r"\item \textbf{It is small.} Use it as one input to the fund's alpha.")
-        trust = r"\item We built it on 2011--18 in four rounds; 2019--24 is held back for a final test."
+        bottom = (r"\item \textbf{Real:} flagged stocks lag similar stocks by about 3\% over a year" + "\n"
+                  + r"\item \textbf{Just avoiding them:} right direction, too noisy" + "\n"
+                  + r"\item \textbf{Optimizer, long-only" + (" after costs" if FIXED_DECK else "") + r":} " + pct(dv[LO_RUN]["net"])
+                  + f" a year, IR {dv[LO_RUN]['ir']:.2f}" + "\n"
+                  + r"\item \textbf{Small:} one input to the fund's alpha")
+        trust = r"\item Built on 2011--18; 2019--24 held back for a final test"
     return r"""% Generated by scripts/build_slides.py from saved results.
 \documentclass[aspectratio=169,11pt]{beamer}
 \usepackage[T1]{fontenc}
@@ -574,16 +592,21 @@ def deck() -> str:
 
 \begin{frame}{The idea}
 \begin{itemize}
-\item A \textbf{liquidity event}: a stock suddenly trades far less than usual for it (measured against its own past year).
-\item \textbf{Why it should matter:} most investors avoid illiquid stocks; only a small group of patient investors holds them, at a slightly lower price.
-\item When a stock's trading collapses, it has to pass from its current holders to that small group.
-  \begin{itemize}
-  \item Sellers can only exit slowly, because volume has dried up; the few buyers need a lower price.
-  \item So the price \textbf{walks down for months}. Shorting these stocks is costly, so nobody trades the drift away.
-  \end{itemize}
-\item We first remove anything the fund's six existing scores already capture.
-\item Questions: is the effect real, and can our long-only fund make money from it?
+\item Most investors avoid illiquid stocks
+\item When a stock's trading collapses, it must pass to a few patient buyers
+\item That hand-off is slow, so the price \textbf{drifts down for months}
+\item Shorting these stocks is costly, so nobody trades the drift away
 \end{itemize}
+\end{frame}
+
+\begin{frame}{What is a liquidity event?}
+\textbf{Illiquidity} (Amihud): price move per dollar traded, last 21 days
+\[ \mathrm{ILLIQ}_{i,t} = \frac{1}{21}\sum_{d=t-20}^{t} \frac{|r_{i,d}|}{\text{dollar volume}_{i,d}} \]
+\textbf{Shock}: against the stock's own past year
+\[ x_{i,t} = \log \mathrm{ILLIQ}_{i,t} - \frac{1}{12}\sum_{k=1}^{12} \log \mathrm{ILLIQ}_{i,t-21k} \]
+\textbf{Remove the fund's six scores} $f_{i,t}$, then standardize across stocks
+\[ x_{i,t} = b_t^\top f_{i,t} + e_{i,t}, \qquad z_{i,t} = \frac{e_{i,t} - \bar e_t}{\mathrm{sd}_t(e)} \]
+\textbf{Event}: $z_{i,t}$ in the day's top 5\%, with no flag in the previous 21 trading days
 \end{frame}
 
 \begin{frame}{Bottom line}
@@ -600,79 +623,65 @@ def deck() -> str:
 """ + regression_table() + r"""
 
 \medskip
-\raggedright\footnotesize Positive = flagged stocks earn less, which is what we bet on. Monthly regressions of next month's return, 2008--2018; every row also controls
-for size, how illiquid the stock already was, its past-year return and its return two to three years ago, and the fund's six scores were removed before flagging.
-Measured once a month, so it understates the first-weeks effect that daily trading captures.
+\raggedright\footnotesize Positive = flagged stocks earn less. Monthly regressions, 2008--2018, controlling for size, prior illiquidity, momentum and long-term reversal.
 \end{frame}
 
-\begin{frame}{The simple idea doesn't work: just avoid these stocks}
+\begin{frame}{Just avoiding them points the right way, but is mostly noise}
 \centering
-""" + avoid_table(r"\small") + r"""
+""" + avoid_compare_table(r"\small") + r"""
 
 \medskip
-\raggedright\footnotesize
+\raggedright
 \begin{itemize}
-\item Hold the benchmark, sell every stock with a liquidity event in the last 63 days, give its weight to similar stocks.
-\item It barely earns anything: these stocks are small, so dropping them tilts the portfolio in ways that add noise and swamp the effect.
-\item The optimizer removes that noise and sizes each bet. That is what makes the signal pay.
+\item Stock-specific part is positive: the flagged stocks did lag
+\item Reweighting 8--9\% of the index adds factor tilts: about half the risk, about no return
+\item The optimizer hedges the tilts and sizes each bet by expected drift
 \end{itemize}
 \end{frame}
 
 \begin{frame}{How we bet on it}
 \textbf{Our alpha} (Grinold--Kahn form): \quad $\alpha_i = \sigma_i \times \bar d_{\,\text{age of event}}$
-""" + (r"""\begin{itemize}\small
-\item $\sigma_i$: volatility; $\bar d$: how far flagged stocks fell behind similar stocks per unit of volatility (ages 1--21, 22--63 days), from earlier years. No recent event: $\alpha = 0$.
-\end{itemize}""" if FIXED_DECK else r"""\begin{itemize}
-\item $\sigma_i$: the stock's volatility. $\bar d$: how far flagged stocks fell behind similar stocks per unit of volatility, at ages 1--21 and 22--63 days after the event, from earlier years only.
-\item Stocks without a recent event get $\alpha = 0$.
-\end{itemize}""") + r"""
-\medskip
-""" + (r"""\textbf{Optimizer:} \quad maximize $h^\top\alpha - \tfrac{\gamma}{2}\,h^\top V h - \lambda\cdot\text{spread costs}$, \ active risk $\le 1\%$
 \begin{itemize}\small
-\item $\gamma$ is fixed for a year: the previous year's median of the value that would put the no-limits portfolio at 1\% risk.
-\item $\lambda$ (0.5--4) is picked each January from earlier years' net results.
-\end{itemize}""" if FIXED_DECK else r"""\textbf{Optimizer:} \quad maximize $h^\top\alpha$ \ at a fixed active risk of 5\%""") + r"""
+\item $\sigma_i$: volatility \quad $\bar d$: past drift vs similar stocks, per unit of volatility \quad no recent event: $\alpha = 0$
+\end{itemize}
+\medskip
+""" + (r"""\textbf{Optimizer:} \quad maximize $h^\top\alpha - \tfrac{\gamma}{2}\,h^\top V h - \lambda\cdot\text{spread costs}$, \ active risk $\le 1\%$""" if FIXED_DECK else r"""\textbf{Optimizer:} \quad maximize $h^\top\alpha$ \ at a fixed active risk of 5\%""") + r"""
 \medskip
 
 \centering\small
 """ + (r"\resizebox{0.92\linewidth}{!}{" + constraints_table() + "}" if FIXED_DECK else constraints_table()) + r"""
 
 \medskip
-\raggedright\scriptsize """ + (r"No limits pays no costs: it is the yardstick for the signal's full strength. No shorting stays small: the stocks it bets against hold little benchmark weight."
-    if FIXED_DECK else r"No shorting reaches only 0.1--0.5\% active risk: the stocks it bets against hold little benchmark weight." + (
-    r" Limited shorting sits in between; its limit was picked on 2011--18 (appendix)." if SHORT else "") + " No trading costs are charged.") + r"""
 \end{frame}
 
 \slide{vol_check.png}
 
 \begin{frame}{Daily rebalancing, """ + period + r"""}
 \begin{columns}[T]
-\begin{column}{0.50\textwidth}
+\begin{column}{""" + ("0.40" if len(PAIRS["daily"]) > 2 else "0.50") + r"""\textwidth}
 \includegraphics[width=\linewidth]{figures/pair_daily""" + SUFFIX + r""".png}
 \end{column}
-\begin{column}{0.48\textwidth}
+\begin{column}{""" + ("0.59" if len(PAIRS["daily"]) > 2 else "0.48") + r"""\textwidth}
 \vspace{10mm}
 """ + pair_table("daily") + r"""
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.""" + short_note + r"""
-TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
+{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.\par}
 \end{frame}
 
 \begin{frame}{Monthly rebalancing, """ + period + r"""}
 \begin{columns}[T]
-\begin{column}{0.50\textwidth}
+\begin{column}{""" + ("0.40" if len(PAIRS["daily"]) > 2 else "0.50") + r"""\textwidth}
 \includegraphics[width=\linewidth]{figures/pair_monthly""" + SUFFIX + r""".png}
 \end{column}
-\begin{column}{0.48\textwidth}
+\begin{column}{""" + ("0.59" if len(PAIRS["daily"]) > 2 else "0.48") + r"""\textwidth}
 \vspace{10mm}
 """ + pair_table("monthly") + r"""
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.""" + short_note + r"""
-TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
+{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.\par}
 \end{frame}
 
 \begin{frame}{How much to trust it}
@@ -683,10 +692,10 @@ TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 
 \begin{frame}{Conclusion}
 \begin{itemize}
-\item Stocks whose trading dries up keep falling for months: they must pass to a small group of patient buyers, and that hand-off is slow.
-\item A long-only fund can make money from it, but only with the optimizer and daily trading.
-\item It is small. Use it as one input to the fund's alpha, not on its own.
-\item Next: combine it with the fund's scores and test the combined alpha, with trading costs.
+\item When trading collapses, the stock lags for months
+\item A long-only fund can capture it, with the optimizer
+\item It is small: one input to the fund's alpha
+\item Next: combine it with the fund's six scores
 \end{itemize}
 \end{frame}
 
@@ -701,9 +710,7 @@ TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 \medskip
 \raggedright\footnotesize
 \begin{itemize}
-\item Version 2: a flag that switched off after a few days missed most of the drift, so we gave each event an age.
-\item Version 3: a noisy positive alpha for large stocks made the portfolio buy them; we stopped allowing positive alpha and hedged with similar stocks.
-\item Version 4: calm stocks fell less than predicted (slide """ + "9" + r"""), so alpha now scales with volatility. Frozen before the 2019--24 test.
+\item v2: each event gets an age \quad v3: no positive alpha; hedge with similar stocks \quad v4: alpha scales with volatility
 \end{itemize}
 \end{frame}
 
@@ -712,8 +719,7 @@ TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 """ + short_grid_table() + r"""
 
 \medskip
-\raggedright\footnotesize Daily runs unless marked, earlier design (5\% risk target). The IRs are within noise of each other, so we chose the limit
-by risk: 0.25\% (bold) sits between long-only and no limits. The same limit is used monthly.
+\raggedright\footnotesize IRs are within noise of each other, so we picked the limit by risk (bold). Earlier design, 5\% risk.
 \end{frame}
 
 """ if SHORT else "") + (r"""\begin{frame}{Appendix: every portfolio with and without trading costs (2011--2018)}
@@ -721,8 +727,7 @@ by risk: 0.25\% (bold) sits between long-only and no limits. The same limit is u
 """ + gamma_costs_table() + r"""
 
 \medskip
-\raggedright\footnotesize Fixed $\gamma$, active risk $\le 1\%$. Costs = half the bid--ask spread on every trade, charged in the optimizer and in the returns;
-* = what the portfolio would pay if traded alone (not charged). Risk = realized.
+\raggedright\footnotesize * = spread cost if it were traded, not charged.
 \end{frame}
 
 """ if FIXED_DECK else "") + (r"""\begin{frame}{Appendix: why is the long-only result bigger in 2019--24?}
@@ -734,12 +739,9 @@ by risk: 0.25\% (bold) sits between long-only and no limits. The same limit is u
 \begin{column}{0.48\textwidth}
 \footnotesize
 \begin{itemize}
-\item Until 2015 the model gave large stocks no alpha, so it could only sell small stocks, which hold little benchmark weight.
-\item As evidence built up, large stocks got a negative alpha too, so the portfolio had more weight to sell.
-\item Same signal, bigger portfolio.
+\item Large stocks had no alpha until 2015
+\item Later they did, so there was more weight to sell
 \end{itemize}
-\vspace{2mm}
-\scriptsize Large-stock alpha: predicted daily drift per unit of volatility, $\times$10,000, for the first month after an event. Long-only: daily, no shorting.
 \end{column}
 \end{columns}
 \end{frame}
@@ -749,8 +751,7 @@ by risk: 0.25\% (bold) sits between long-only and no limits. The same limit is u
 """ + age_table() + r"""
 
 \medskip
-\raggedright\footnotesize Return earned on positions in stocks with a recent event, an older event, or none. In the no-limits runs the bets against flagged stocks are hedged
-with similar stocks; small, illiquid stocks lag in general, so both sides show it and it cancels.
+\raggedright\footnotesize Return by the age of the event behind each position.
 \end{frame}
 \end{document}
 """

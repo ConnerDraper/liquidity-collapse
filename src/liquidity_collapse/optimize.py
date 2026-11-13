@@ -321,17 +321,32 @@ def short_backtest(task: int) -> None:
     run(name, 0.0, lo, hi, short_stem(name, s).replace("year_*", f"year_{year}"), floor=s)
 
 
+DEV_SCHEDULE = OUTPUT / "optimizer_fixed_gamma" / "lambda_schedule.json"
+
+
+def frozen_lambdas() -> dict:
+    """Holdout: each cost run keeps the lambda the walk-forward chose for the last development year."""
+    return {n: v[str(O["end"].year)] for n, v in json.loads(DEV_SCHEDULE.read_text()).items()}
+
+
 def variant_tasks() -> list[tuple]:
     """Fixed-gamma design (LAB_FIXED_GAMMA=1): (run, lambda, year or None). No-cost daily runs by year, no-cost monthly
-    runs whole; daily cost runs by (lambda, year) with a warm-up, monthly cost runs by lambda."""
+    runs whole; daily cost runs by (lambda, year) with a warm-up, monthly cost runs by lambda. Holdout (LAB_HOLDOUT=1):
+    the frozen design, each cost run at its frozen lambda only."""
     years = range(FIRST_YEAR, END.year + 1)
     tasks = [(n, 0.0, y) for n in ("U-D", "S-D", "C-D") for y in years] + [(n, 0.0, None) for n in ("U-M", "S-M", "C-M")]
+    if HOLDOUT:
+        lam = frozen_lambdas()
+        tasks += [(n, lam[n], y) for n in ("UC-D", "SC-D", "CC-D") for y in years]
+        return tasks + [(n, lam[n], None) for n in ("UC-M", "SC-M", "CC-M")]
     tasks += [(n, lam, y) for n in ("UC-D", "SC-D", "CC-D") for lam in O["lambdas"] for y in years]
     return tasks + [(n, lam, None) for n in ("UC-M", "SC-M", "CC-M") for lam in O["lambdas"]]
 
 
 def variant_name(name: str, lam: float, year) -> str:
     costs = RUNS[name][2]
+    if costs and HOLDOUT:  # frozen lambda: the run itself is the final run
+        return f"{name}/final" + (f"/year_{year}" if year else "")
     return (f"{name}/lambda_{lam:g}" if costs else name) + (f"/year_{year}" if year else ("" if costs else "/lambda_0"))
 
 
@@ -394,6 +409,14 @@ def performance(name: str, stem: str, hi: dt.date = RUN_END) -> pl.DataFrame:
 def ir(x: np.ndarray, frequency: str) -> float:
     k = 252 if frequency == "daily" else 12
     return float(x.mean() / x.std(ddof=1) * math.sqrt(k)) if len(x) > 2 and x.std() > 0 else float("nan")
+
+
+def write_frozen_schedule() -> None:
+    """Holdout: record the frozen lambdas in the holdout's schedule file (read by gamma_costs_summary.py)."""
+    lam = frozen_lambdas()
+    SCHEDULE.parent.mkdir(parents=True, exist_ok=True)
+    SCHEDULE.write_text(json.dumps({n: {str(y): v for y in range(FIRST_YEAR, END.year + 1)} for n, v in lam.items()}, indent=1))
+    print(json.dumps(lam), flush=True)
 
 
 def select_lambda() -> None:
@@ -460,6 +483,8 @@ STEMS = {"U-D": "U-D/year_*", "C-D": "C-D/year_*", "U-M": "U-M/lambda_0", "CC-D"
 if FIXED:  # fixed-gamma design: its own folder, no limit grid
     STEMS = {"U-D": "U-D/year_*", "S-D": "S-D/year_*", "C-D": "C-D/year_*", "U-M": "U-M/lambda_0", "S-M": "S-M/lambda_0",
              "C-M": "C-M/lambda_0"} | {n: f"{n}/final" for n in ("UC-D", "SC-D", "CC-D", "UC-M", "SC-M", "CC-M")}
+    if HOLDOUT:  # daily cost runs are saved by year
+        STEMS |= {n: f"{n}/final/year_*" for n in ("UC-D", "SC-D", "CC-D")}
 elif "short_limit" in O:
     STEMS |= {n: short_stem(n, O["short_limit"]) for n in ("S-D", "S-M")}
 

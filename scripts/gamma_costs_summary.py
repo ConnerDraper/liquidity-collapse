@@ -40,6 +40,7 @@ for freq, tag, k in (("daily", "D", 252), ("monthly", "M", 12)):
                 "gross_pct": s["gross_return"] * 100, "net_pct": s["net_return"] * 100,
                 "ir": s["ir"], "t": s["ir"] * math.sqrt(years), "risk_realized_pct": risk * 100,
                 "risk_model_pct": s["mean_active_risk_model"] * 100, "turnover_per_year": s["mean_turnover"] * k,
+                "turnover_one_way_per_year": s["mean_turnover"] * k / 2,
                 "spread_cost_pct": s["cost_per_year"] * 100 if costs else implied.get(n, {}).get("cost_pct_per_year"),
                 "spread_cost_kind": "charged" if costs else "if traded alone",
                 "tc_vs_no_limits": tc.get(n), "lambda_by_year": json.dumps(schedule.get(n)) if costs else None,

@@ -25,24 +25,29 @@
 
 \begin{frame}{The idea}
 \begin{itemize}
-\item A \textbf{liquidity event}: a stock suddenly trades far less than usual for it (measured against its own past year).
-\item \textbf{Why it should matter:} most investors avoid illiquid stocks; only a small group of patient investors holds them, at a slightly lower price.
-\item When a stock's trading collapses, it has to pass from its current holders to that small group.
-  \begin{itemize}
-  \item Sellers can only exit slowly, because volume has dried up; the few buyers need a lower price.
-  \item So the price \textbf{walks down for months}. Shorting these stocks is costly, so nobody trades the drift away.
-  \end{itemize}
-\item We first remove anything the fund's six existing scores already capture.
-\item Questions: is the effect real, and can our long-only fund make money from it?
+\item Most investors avoid illiquid stocks
+\item When a stock's trading collapses, it must pass to a few patient buyers
+\item That hand-off is slow, so the price \textbf{drifts down for months}
+\item Shorting these stocks is costly, so nobody trades the drift away
 \end{itemize}
+\end{frame}
+
+\begin{frame}{What is a liquidity event?}
+\textbf{Illiquidity} (Amihud): price move per dollar traded, last 21 days
+\[ \mathrm{ILLIQ}_{i,t} = \frac{1}{21}\sum_{d=t-20}^{t} \frac{|r_{i,d}|}{\text{dollar volume}_{i,d}} \]
+\textbf{Shock}: against the stock's own past year
+\[ x_{i,t} = \log \mathrm{ILLIQ}_{i,t} - \frac{1}{12}\sum_{k=1}^{12} \log \mathrm{ILLIQ}_{i,t-21k} \]
+\textbf{Remove the fund's six scores} $f_{i,t}$, then standardize across stocks
+\[ x_{i,t} = b_t^\top f_{i,t} + e_{i,t}, \qquad z_{i,t} = \frac{e_{i,t} - \bar e_t}{\mathrm{sd}_t(e)} \]
+\textbf{Event}: $z_{i,t}$ in the day's top 5\%, with no flag in the previous 21 trading days
 \end{frame}
 
 \begin{frame}{Bottom line}
 \begin{itemize}
-\item \textbf{Yes, it is real.} Stocks whose trading dries up keep falling: about 3\% behind similar stocks over the next year.
-\item \textbf{Just avoiding them doesn't help:} +0.05\% to +0.10\% a year, not significant.
-\item \textbf{Betting against them daily with the optimizer works}, also on 2019--24 data we held back: long-only +0.51\% a year (IR 1.05).
-\item \textbf{It is small:} about +0.31\% a year after trading costs. Use it as one input to the fund's alpha.
+\item \textbf{Real:} flagged stocks lag similar stocks by about 3\% over a year
+\item \textbf{Just avoiding them:} right direction, too noisy
+\item \textbf{Optimizer, long-only:} +0.51\% a year, IR 1.05, on held-back 2019--24
+\item \textbf{Small:} one input to the fund's alpha
 \end{itemize}
 \end{frame}
 
@@ -62,40 +67,38 @@ Had a liquidity event in the last month & 0.18 (2.5) \\
 \end{tabular}
 
 \medskip
-\raggedright\footnotesize Positive = flagged stocks earn less, which is what we bet on. Monthly regressions of next month's return, 2008--2018; every row also controls
-for size, how illiquid the stock already was, its past-year return and its return two to three years ago, and the fund's six scores were removed before flagging.
-Measured once a month, so it understates the first-weeks effect that daily trading captures.
+\raggedright\footnotesize Positive = flagged stocks earn less. Monthly regressions, 2008--2018, controlling for size, prior illiquidity, momentum and long-term reversal.
 \end{frame}
 
-\begin{frame}{The simple idea doesn't work: just avoid these stocks}
+\begin{frame}{Just avoiding them points the right way, but is mostly noise}
 \centering
 \small
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrrrr}
 \toprule
-2011--2018 & Weight avoided & Return & Risk & IR ($t$) & IR, market removed \\
+2011--2018 & Weight & Return & Stock- & Factor & Risk & IR ($t$) \\
+ & moved & \%/yr & specific & tilts & & \\
 \midrule
-Just avoid flagged stocks, daily & 8.6\% & +0.05\%/yr & 0.47\% & 0.11 (0.3) & $-$0.12 \\
-Just avoid flagged stocks, monthly & 8.7\% & +0.10\%/yr & 0.43\% & 0.23 (0.7) & $-$0.12 \\
+Just avoid them, daily & 8.6\% & +0.05 & +0.09 & $-$0.04 & 0.47\% & 0.11 (0.3) \\
+Just avoid them, monthly & 8.7\% & +0.10 & +0.09 & +0.01 & 0.43\% & 0.23 (0.7) \\
 \midrule
-Optimizer, daily, no shorting & --- &+0.19\%/yr & 0.10\% & 1.82 (5.1) & --- \\
+Optimizer, long-only, daily & --- & +0.19 & --- & --- & 0.10\% & 1.82 (5.1) \\
 \bottomrule
 \end{tabular}}
 
 \medskip
-\raggedright\footnotesize
+\raggedright
 \begin{itemize}
-\item Hold the benchmark, sell every stock with a liquidity event in the last 63 days, give its weight to similar stocks.
-\item It barely earns anything: these stocks are small, so dropping them tilts the portfolio in ways that add noise and swamp the effect.
-\item The optimizer removes that noise and sizes each bet. That is what makes the signal pay.
+\item Stock-specific part is positive: the flagged stocks did lag
+\item Reweighting 8--9\% of the index adds factor tilts: about half the risk, about no return
+\item The optimizer hedges the tilts and sizes each bet by expected drift
 \end{itemize}
 \end{frame}
 
 \begin{frame}{How we bet on it}
 \textbf{Our alpha} (Grinold--Kahn form): \quad $\alpha_i = \sigma_i \times \bar d_{\,\text{age of event}}$
-\begin{itemize}
-\item $\sigma_i$: the stock's volatility. $\bar d$: how far flagged stocks fell behind similar stocks per unit of volatility, at ages 1--21 and 22--63 days after the event, from earlier years only.
-\item Stocks without a recent event get $\alpha = 0$.
+\begin{itemize}\small
+\item $\sigma_i$: volatility \quad $\bar d$: past drift vs similar stocks, per unit of volatility \quad no recent event: $\alpha = 0$
 \end{itemize}
 \medskip
 \textbf{Optimizer:} \quad maximize $h^\top\alpha$ \ at a fixed active risk of 5\%
@@ -114,7 +117,6 @@ Long-only: no weight below zero ($b + h \ge 0$) & -- & $\checkmark$ \\
 \end{tabular}
 
 \medskip
-\raggedright\scriptsize No shorting reaches only 0.1--0.5\% active risk: the stocks it bets against hold little benchmark weight. No trading costs are charged.
 \end{frame}
 
 \slide{vol_check.png}
@@ -139,7 +141,7 @@ Active risk (realized) & 5.82\% & 6.12\% & 0.10\% & 0.48\% \\
 IR ($t$) & 1.17 (3.3) & 1.21 (3.0) & 1.82 (5.1) & 1.05 (2.6) \\
 Max drawdown & $-$7.62\% & $-$6.53\% & $-$0.15\% & $-$1.14\% \\
 Positive years & 7/8 & 5/6 & 8/8 & 5/6 \\
-Turnover, $\times$/yr & 186.4 & 166.9 & 2.2 & 4.5 \\
+Turnover (one-way), $\times$/yr & 93.2 & 83.4 & 1.1 & 2.3 \\
 TC vs no limits & ref. & ref. & 0.44 & 0.36 \\
 Spread cost if traded alone, \%/yr & 14.06 & 15.91 & 0.09 & 0.19 \\
 \bottomrule
@@ -147,8 +149,7 @@ Spread cost if traded alone, \%/yr & 14.06 & 15.91 & 0.09 & 0.19 \\
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.
-TC = ex-ante transfer coefficient vs.\ no limits. Holdout: design frozen before it was run; settings re-estimated each January from earlier years only.\par}
+{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.\par}
 \end{frame}
 
 \begin{frame}{Monthly rebalancing, 2011--2018 and holdout 2019--2024}
@@ -171,7 +172,7 @@ Active risk (realized) & 6.03\% & 6.59\% & 0.10\% & 0.44\% \\
 IR ($t$) & 0.48 (1.4) & 0.54 (1.3) & 0.82 (2.3) & $-$0.05 ($-$0.1) \\
 Max drawdown & $-$11.47\% & $-$10.74\% & $-$0.14\% & $-$0.84\% \\
 Positive years & 5/8 & 5/6 & 7/8 & 2/6 \\
-Turnover, $\times$/yr & 60.9 & 53.9 & 0.7 & 1.5 \\
+Turnover (one-way), $\times$/yr & 30.5 & 26.9 & 0.4 & 0.7 \\
 TC vs no limits & ref. & ref. & 0.44 & 0.36 \\
 Spread cost if traded alone, \%/yr & 5.63 & 6.28 & 0.02 & 0.05 \\
 \bottomrule
@@ -179,25 +180,23 @@ Spread cost if traded alone, \%/yr & 5.63 & 6.28 & 0.02 & 0.05 \\
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.
-TC = ex-ante transfer coefficient vs.\ no limits. Holdout: design frozen before it was run; settings re-estimated each January from earlier years only.\par}
+{\scriptsize Lines scaled to equal risk so their shapes compare; the table has the real numbers.\par}
 \end{frame}
 
 \begin{frame}{How much to trust it}
 \begin{itemize}
-\item We built it on 2011--18 in four rounds, then froze it and ran 2019--24 \textbf{once}.
-\item In 2019--24 the long-only portfolio is bigger (0.48\% risk vs 0.10\%): the model learned that large stocks drift too, so it had more weight to sell (appendix).
-\item After trading costs, long-only earns about +0.31\% a year (IR about 0.6).
-\item Six years is short (standard error of an IR $\approx 1/\sqrt{\text{years}}$): the true IR could be anywhere from about 0.2 to 1.9.
+\item Built on 2011--18, frozen, then run on 2019--24 \textbf{once}
+\item Long-only after costs, 2019--24: +0.31\% a year, IR 1.05
+\item Six years is short: true IR likely between 0.2 and 1.9
 \end{itemize}
 \end{frame}
 
 \begin{frame}{Conclusion}
 \begin{itemize}
-\item Stocks whose trading dries up keep falling for months: they must pass to a small group of patient buyers, and that hand-off is slow.
-\item A long-only fund can make money from it, but only with the optimizer and daily trading.
-\item It is small. Use it as one input to the fund's alpha, not on its own.
-\item Next: combine it with the fund's scores and test the combined alpha, with trading costs.
+\item When trading collapses, the stock lags for months
+\item A long-only fund can capture it, with the optimizer
+\item It is small: one input to the fund's alpha
+\item Next: combine it with the fund's six scores
 \end{itemize}
 \end{frame}
 
@@ -222,9 +221,7 @@ Daily runs, \%/yr (IR), no costs & No limits & No shorting \\
 \medskip
 \raggedright\footnotesize
 \begin{itemize}
-\item Version 2: a flag that switched off after a few days missed most of the drift, so we gave each event an age.
-\item Version 3: a noisy positive alpha for large stocks made the portfolio buy them; we stopped allowing positive alpha and hedged with similar stocks.
-\item Version 4: calm stocks fell less than predicted (slide 9), so alpha now scales with volatility. Frozen before the 2019--24 test.
+\item v2: each event gets an age \quad v3: no positive alpha; hedge with similar stocks \quad v4: alpha scales with volatility
 \end{itemize}
 \end{frame}
 
@@ -260,12 +257,9 @@ Year & alpha & risk & return \\
 \begin{column}{0.48\textwidth}
 \footnotesize
 \begin{itemize}
-\item Until 2015 the model gave large stocks no alpha, so it could only sell small stocks, which hold little benchmark weight.
-\item As evidence built up, large stocks got a negative alpha too, so the portfolio had more weight to sell.
-\item Same signal, bigger portfolio.
+\item Large stocks had no alpha until 2015
+\item Later they did, so there was more weight to sell
 \end{itemize}
-\vspace{2mm}
-\scriptsize Large-stock alpha: predicted daily drift per unit of volatility, $\times$10,000, for the first month after an event. Long-only: daily, no shorting.
 \end{column}
 \end{columns}
 \end{frame}
@@ -285,7 +279,6 @@ Monthly, no shorting & +0.09 & +0.06 & $-$0.05 \\
 \end{tabular}
 
 \medskip
-\raggedright\footnotesize Return earned on positions in stocks with a recent event, an older event, or none. In the no-limits runs the bets against flagged stocks are hedged
-with similar stocks; small, illiquid stocks lag in general, so both sides show it and it cancels.
+\raggedright\footnotesize Return by the age of the event behind each position.
 \end{frame}
 \end{document}

@@ -150,8 +150,8 @@ def main() -> None:
         from .optimize import pick_short
         pick_short()
     elif args.command == "select-lambda":
-        from .optimize import select_lambda
-        select_lambda()
+        from .optimize import FIXED, HOLDOUT, select_lambda, write_frozen_schedule
+        write_frozen_schedule() if FIXED and HOLDOUT else select_lambda()
     elif args.command == "final":
         from .optimize import final
         final(args.task)

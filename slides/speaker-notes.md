@@ -63,7 +63,7 @@ A few talking points per slide, plus the question most likely to come up. Number
 - No limits: IR about 1.2 in both periods.
 - No shorting: +0.19% a year (IR 1.8) in 2011–18, then +0.51% a year (IR 1.05) in the held-back years.
 - Transfer coefficient 0.44 and 0.36: the long-only version keeps roughly 40% of what the signal could earn without the long-only rule.
-- **Likely question:** "The no-limits turnover is enormous." It isn't a strategy we'd trade; it's a yardstick for how much information the signal has. The long-only portfolio turns over only a few times a year, which is normal.
+- **Likely question:** "The no-limits turnover is enormous." It isn't a strategy we'd trade; it's a yardstick for how much information the signal has. The long-only portfolio turns over about once a year (one-way), which is normal.
 - **Likely question:** "Are those IRs inflated by thinly traded stocks?" No. Measured from monthly returns instead of daily, the long-only IR is the same, about 1.0.
 
 ## 11. Monthly rebalancing
@@ -115,7 +115,7 @@ The design was frozen before the held-back test.
 
 # Fixed-γ deck (`slides_fixed_gamma.pdf`): notes for the slides that differ
 
-This deck uses the new design: γ fixed each year, active risk capped at 1%, and trading costs charged. Slides not listed here are the same as above. All numbers are 2011–2018; this design hasn't been run on 2019–2024.
+All turnover figures are one-way (half of buys plus sells), the usual convention. This deck uses the new design: γ fixed each year, active risk capped at 1%, and trading costs charged. Slides not listed here are the same as above. All numbers are 2011–2018; this design hasn't been run on 2019–2024.
 
 ## 8. How we bet on it
 - **Objective:** expected return minus a risk penalty minus trading costs, with active risk capped at 1%.
@@ -128,11 +128,11 @@ This deck uses the new design: γ fixed each year, active risk capped at 1%, and
 - **Likely question:** "Why does no limits pay no costs?" It isn't meant to be traded. It measures how much the signal could earn, and TC is measured against it.
 
 ## 10. Daily rebalancing
-- **No limits:** +1.30% a year at 1.1% risk (IR 1.17), turning over 35× a year.
-- **Limited shorting after costs:** +0.57% a year (IR 0.59), turnover 12× a year, and it pays about 0.5% a year in spreads.
-- **Long-only after costs:** +0.12% a year (IR 1.04, t ≈ 2.9), turnover under 1× a year, almost nothing in spreads.
+- **No limits:** +1.30% a year at 1.1% risk (IR 1.17), turning over about 18× a year (one-way).
+- **Limited shorting after costs:** +0.57% a year (IR 0.59), turnover about 6× a year (one-way, so positions last about two months), and it pays about 0.5% a year in spreads.
+- **Long-only after costs:** +0.12% a year (IR 1.04, t ≈ 2.9), turnover about 0.4× a year (one-way), almost nothing in spreads.
 - **TC 0.84 and 0.33:** how much of the signal survives the shorting rule and costs together.
-- **Likely question, "the turnover is huge":** charging costs cut it to a third (35× → 14× with no limits, 30× → 12× with limited shorting). The rest is the price of a signal that lives for weeks.
+- **Likely question, "the turnover is huge":** charging costs cut it by about 60% (one-way: 18× → 7× with no limits, 15× → 6× with limited shorting). About 6× a year means positions last about two months, as long as the drift does. That is faster than value or momentum (1–4×) but slower than short-term reversal (10×+).
 
 ## 11. Monthly rebalancing
 - **Long-only after costs** does about as well as daily: +0.14% a year, IR 1.10, positive in 8 of 8 years.
