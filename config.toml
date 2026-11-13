@@ -38,6 +38,11 @@ days_per_month = 21             # daily alpha = monthly alpha / 21
 lambdas = [0.5, 1.0, 2.0, 4.0]  # cost aversion; alpha in cost runs is the remaining drift, so 1 = pay one one-way cost
 default_lambda = 1.0            # used 2011-2013, before three years of history exist
 first_lambda_year = 2014
+short_limits = [0.0005, 0.001, 0.0025, 0.005, 0.01, 0.02]  # limited shorting: each stock's total weight >= -s
+min_middle_risk = 0.01          # the chosen s: best daily dev IR among limits averaging at least this ex-ante risk
+short_limit = 0.0025            # limited shorting used from here on (chosen by risk: the grid's IRs were within noise)
+fixed_target_risk = 0.01        # LAB_FIXED_GAMMA=1: risk cap, and the target the yearly fixed gamma is calibrated to
+warm_up_days = 63               # LAB_FIXED_GAMMA=1: daily cost runs start this many trading days before each year
 
 [event]
 # Event-clock liquidity signal (plan: make-a-plan-for-hidden-russell.md)

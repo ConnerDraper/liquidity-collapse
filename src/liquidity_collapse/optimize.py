@@ -10,6 +10,11 @@ Runs:  U-D, C-D (daily, no costs), CC-D (daily, costs), CC-M (monthly, costs), U
 Objective: max alpha'h - lambda * sum c|h - h_prev| - (gamma/2) h'Vh, gamma set daily so the
 unconstrained no-cost portfolio sits at the 5% risk target. Alpha comes from event_alpha.EventAlphas.
 Set LAB_SMOKE=1 to run every step on January-March 2011 into separate smoke directories.
+
+LAB_FIXED_GAMMA=1: the fixed-gamma design. Each year's gamma is the median calibrated gamma (the value that would put
+the unconstrained portfolio at fixed_target_risk) over the previous year, the risk cap is fixed_target_risk, and runs,
+analysis and the lambda schedule go to output/optimizer_fixed_gamma[_holdout]. The solver is sf-quant's
+cost_aware_mve_optimizer with GroupNeutral / MaxShort / LongOnly constraints.
 """
 
 import datetime as dt
@@ -25,8 +30,8 @@ import sf_quant.data as sfd
 import sf_quant.performance as sfp
 from sf_quant.data._factors import factors as FACTORS
 from sf_quant.data.covariance_matrix import construct_factor_model_components
-from sf_quant.optimizer import LongOnly, ZeroBeta, ZeroInvestment
-from sf_quant.optimizer.optimizers import _construct_constraints
+from sf_quant.optimizer import (GroupNeutral, LongOnly, MaxShort, ZeroBeta, ZeroInvestment, calibrate_gamma,
+                                cost_aware_mve_optimizer)
 
 from .config import CFG, OUTPUT
 from .daily_signal import END, HOLDOUT, OPT, guard
@@ -36,17 +41,24 @@ from .panel import features
 O = CFG["optimizer"]
 CACHE = OUTPUT / "optimizer" / "cache"  # shared: the risk model does not depend on the signal
 SMOKE = os.environ.get("LAB_SMOKE") == "1"
+FIXED = os.environ.get("LAB_FIXED_GAMMA") == "1"
+TARGET = O["fixed_target_risk"] if FIXED else O["target_risk"]
 RUN_END = dt.date(2011, 3, 31) if SMOKE else END
 START = CFG["window"]["holdout_start"] if HOLDOUT else O["start"]
 FIRST_YEAR = START.year if HOLDOUT else O["first_year"]
-RUNS_DIR = OPT / ("runs_smoke" if SMOKE else "runs")
-ANALYSIS = OPT / ("analysis_smoke" if SMOKE else "analysis")
-SCHEDULE = OPT / ("lambda_schedule_smoke.json" if SMOKE else "lambda_schedule.json")
+OUT = OUTPUT / ("optimizer_fixed_gamma" + ("_holdout" if HOLDOUT else "")) if FIXED else OPT
+RUNS_DIR = OUT / ("runs_smoke" if SMOKE else "runs")
+ANALYSIS = OUT / ("analysis_smoke" if SMOKE else "analysis")
+SCHEDULE = OUT / ("lambda_schedule_smoke.json" if SMOKE else "lambda_schedule.json")
 RUNS = {  # name: (frequency, long-only, charges costs)
     "U-D": ("daily", False, False), "C-D": ("daily", True, False), "CC-D": ("daily", True, True),
     "CC-M": ("monthly", True, True), "U-M": ("monthly", False, False),
     "C-M": ("monthly", True, False),  # run separately by extra_backtest()
+    "S-D": ("daily", False, False), "S-M": ("monthly", False, False),  # limited shorting: b + h >= -s
+    "UC-D": ("daily", False, True), "SC-D": ("daily", False, True),  # no limits / limited shorting with costs
+    "UC-M": ("monthly", False, True), "SC-M": ("monthly", False, True),
 }
+LIMITED = {"S-D", "S-M", "SC-D", "SC-M"}  # names with the per-stock short limit O["short_limit"]
 # Every run has zero net active weight within each size x pre-shock-illiquidity fifth (the matched-drift
 # cells), so the hedge is drawn from the events' own controls.
 
@@ -129,33 +141,44 @@ def daily_returns(lo: dt.date, hi: dt.date) -> dict:
 
 # ---------------------------------------------------------------- solve
 def risk_aversion(alpha, B, F, D) -> float:
-    """gamma = sqrt(alpha' V^-1 alpha) / target, so the unconstrained optimum V^-1 alpha / gamma has
-    exactly the target risk. V = B F B' + diag(D), inverted with the Woodbury identity."""
-    u = alpha / D
-    w = B.T @ u
-    m = np.linalg.inv(F) + (B.T * (1 / D)) @ B
-    q = float(alpha @ u - w @ np.linalg.solve(m, w))
-    return math.sqrt(max(q, 0.0)) / O["target_risk"]
+    """gamma = sqrt(alpha' V^-1 alpha) / target: the unconstrained optimum V^-1 alpha / gamma sits exactly at the target."""
+    return calibrate_gamma(alpha, B, F, D, TARGET)
 
 
-def solve(alpha, B, F, D, constraints, before, c, lam, b, beta, gamma, groups=None):
-    """max alpha'h - lam * c'|h - before| - (gamma/2) h'Vh, with the risk cap and constraints.
-    groups (int per asset): net active weight is zero within each group."""
-    h = cp.Variable(len(alpha))
-    risk = cp.quad_form(B.T @ h, F) + cp.sum_squares(cp.multiply(np.sqrt(D), h))
-    objective = alpha @ h - gamma / 2 * risk - (lam * (c @ cp.abs(h - before)) if lam > 0 else 0)
-    cons = [risk <= O["target_risk"] ** 2] + [k(h) for k in _construct_constraints(constraints, betas=beta, benchmark_weights=b)]
-    if groups is not None:
-        G = (groups[None, :] == np.unique(groups)[:, None]).astype(float)
-        cons.append(G @ h == 0)
-    problem = cp.Problem(cp.Maximize(objective), cons)
+def solve(alpha, B, F, D, constraints, before, c, lam, b, beta, gamma, groups=None, floor=None):
+    """sf-quant's cost_aware_mve_optimizer: max alpha'h - lam * c'|h - before| - (gamma/2) h'Vh under the risk cap
+    TARGET and the constraints. groups (int per asset): net active weight is zero within each group (GroupNeutral).
+    floor: total weight b + h >= -floor (MaxShort). Returns None when the solve fails."""
+    cons = list(constraints) + ([GroupNeutral(groups)] if groups is not None else []) + ([MaxShort(floor)] if floor is not None else [])
     try:
-        problem.solve(solver="CLARABEL", max_threads=1)
-    except cp.error.SolverError:
-        problem.solve(solver="SCS", max_iters=20000)
-    if problem.status not in ("optimal", "optimal_inaccurate") or h.value is None:
+        out = cost_aware_mve_optimizer(
+            ids=[str(k) for k in range(len(alpha))], alphas=alpha, factor_exposures=B, factor_covariance=F, specific_risk=D,
+            constraints=cons, previous_weights=before, half_spreads=c, cost_aversion=lam, target_active_risk=TARGET,
+            betas=beta, benchmark_weights=b, gamma=gamma)
+    except (ValueError, cp.error.SolverError):
         return None
-    return h.value
+    return out["weight"].to_numpy()
+
+
+def gamma_schedule(years, frequency: str, costs: bool, alphas, hi: dt.date) -> dict:
+    """Fixed gamma for each year: the median calibrated gamma over every 5th trading day of the previous year (the
+    first development year, which has no previous year, uses its own). Only days with live alpha count."""
+    out = {}
+    for y in years:
+        src = y - 1 if y - 1 >= O["first_year"] else y
+        days = trading_days(dt.date(src, 1, 1) - dt.timedelta(days=10), min(dt.date(src, 12, 31), hi))
+        prev = previous_day(days)
+        g = []
+        for d in [d for d in days if d.year == src][::5]:
+            c = load_cache(d)
+            a = alphas(prev[d], d.year, c["ids"], frequency, costs)[0]
+            if np.any(a != 0):
+                g.append(risk_aversion(a, c["B"].astype(np.float64), c["F"], c["D"]))
+        if not g:
+            raise ValueError(f"no live alpha in {src} to fix gamma for {y}")
+        out[y] = float(np.median(g))
+        print(f"gamma {y} ({frequency}, costs={costs}): {out[y]:.4g} from {len(g)} days of {src}", flush=True)
+    return out
 
 
 # ---------------------------------------------------------------- one run
@@ -172,9 +195,10 @@ def growth(returns: dict, dates: list[dt.date]) -> pl.DataFrame:
     return pl.concat(frames).group_by("barrid").agg((pl.col("return") + 1).product().sub(1).alias("R"))
 
 
-def run(name: str, lam, lo: dt.date, hi: dt.date, out: str, start=None) -> None:
+def run(name: str, lam, lo: dt.date, hi: dt.date, out: str, start=None, floor=None, record_from=None) -> None:
     """``lam`` is a number or {year: lambda}. ``start`` = (held total weights, their date, earlier frames,
-    earlier log rows) resumes a run already computed up to lo. Writes RUNS_DIR/{out}.parquet and {out}_days.parquet."""
+    earlier log rows) resumes a run already computed up to lo. ``floor`` caps each stock's short at -floor
+    total weight. ``record_from``: days before it are solved (a warm-up) but not saved. Writes RUNS_DIR/{out}.parquet and {out}_days.parquet."""
     frequency, long_only, costs = RUNS[name]
     constraints = [ZeroInvestment(), ZeroBeta()] + ([LongOnly()] if long_only else [])
     first = min(lo - dt.timedelta(days=10), start[1]) if start else lo - dt.timedelta(days=10)
@@ -183,7 +207,10 @@ def run(name: str, lam, lo: dt.date, hi: dt.date, out: str, start=None) -> None:
     days = [d for d in all_days if d >= lo]
     rebalance = days if frequency == "daily" else [d for k, d in enumerate(days) if k == 0 or d.month != days[k - 1].month]
     returns = daily_returns(first, hi)
-    alphas = EventAlphas(lo, hi)
+    record_from = record_from or lo
+    years = range(record_from.year, hi.year + 1)
+    alphas = EventAlphas(min(lo, dt.date(max(record_from.year - 1, O["first_year"]), 1, 1)) if FIXED else lo, hi)
+    fixed = gamma_schedule(years, frequency, costs, alphas, hi) if FIXED else None
     gamma = None
     caps = features(["date", "barrid", "market_cap"], years=range(lo.year, hi.year + 1)).filter(
         pl.col("date").is_between(lo - dt.timedelta(days=10), hi)).collect()
@@ -210,13 +237,13 @@ def run(name: str, lam, lo: dt.date, hi: dt.date, out: str, start=None) -> None:
         lam_d = (lam[str(date_.year)] if isinstance(lam, dict) else lam) if costs else 0.0
         B64 = c["B"].astype(np.float64)
         if np.any(alpha != 0):
-            gamma = risk_aversion(alpha, B64, c["F"], c["D"])
+            gamma = fixed[max(date_.year, record_from.year)] if FIXED else risk_aversion(alpha, B64, c["F"], c["D"])
         try:
             if gamma is None:  # no live events yet: stay at the benchmark
                 h, status = np.zeros(len(ids)), "no_alpha"
             else:
                 groups = alphas.cells(prev[date_], ids)
-                h, status = solve(alpha, B64, c["F"], c["D"], constraints, before, c["c"], lam_d, b, beta, gamma, groups), "ok"
+                h, status = solve(alpha, B64, c["F"], c["D"], constraints, before, c["c"], lam_d, b, beta, gamma, groups, floor), "ok"
                 if h is None:
                     h, status = before.copy(), "failed"
         except (ValueError, cp.error.SolverError, np.linalg.LinAlgError):
@@ -234,6 +261,9 @@ def run(name: str, lam, lo: dt.date, hi: dt.date, out: str, start=None) -> None:
         exp = c["B"].astype(np.float64).T @ h
         factor_var = float(exp @ c["F"] @ exp)  # Barra covariances are annual
         specific_var = float((h ** 2 * c["D"]).sum())
+        held, held_date = pl.DataFrame({"barrid": ids, "total": h + b}), date_
+        if date_ < record_from:
+            continue
         rows.append({
             "date": date_, "status": status, "lambda": lam_d, "names": len(ids), "flagged": int(flagged.sum()),
             "alpha_h": float(alpha_tc @ h), "alpha_opt_h": float(alpha @ h), "gamma": gamma or 0.0, "active_risk": risk, "turnover": float(trade.sum() + exits),
@@ -245,7 +275,6 @@ def run(name: str, lam, lo: dt.date, hi: dt.date, out: str, start=None) -> None:
             "factor_risk_share": factor_var / (factor_var + specific_var) if factor_var + specific_var > 0 else float("nan"),
         })
         frames.append(pl.DataFrame({"date": [date_] * len(ids), "barrid": ids, "active_weight": h}))
-        held, held_date = pl.DataFrame({"barrid": ids, "total": h + b}), date_
         if k % 100 == 0:
             print(f"{out} {date_}: {status}, risk {risk:.4f}, {time.time() - started:.0f}s", flush=True)
     RUNS_DIR.mkdir(parents=True, exist_ok=True)
@@ -272,6 +301,54 @@ def backtest_tasks() -> list[tuple]:
 def extra_backtest() -> None:
     """C-M (monthly, no shorting, no costs): the monthly twin of C-D, outside the task array."""
     run("C-M", 0.0, START, RUN_END, "C-M/lambda_0")
+
+
+def short_stem(name: str, s: float) -> str:
+    return f"{name}/limit_{s * 100:g}" + ("/year_*" if name == "S-D" else "/lambda_0")
+
+
+def short_tasks() -> list[tuple]:
+    """Limited shorting (b + h >= -s): every s in the grid on the development years; the chosen s on the holdout."""
+    limits = [O["short_limit"]] if HOLDOUT else O["short_limits"]
+    years = range(FIRST_YEAR, END.year + 1)
+    return [("S-D", s, y) for s in limits for y in years] + [("S-M", s, None) for s in limits]
+
+
+def short_backtest(task: int) -> None:
+    name, s, year = short_tasks()[task]
+    lo, hi = (dt.date(year, 1, 1), dt.date(year, 12, 31)) if year else (START, RUN_END)
+    lo, hi = max(lo, START), min(hi, RUN_END)
+    run(name, 0.0, lo, hi, short_stem(name, s).replace("year_*", f"year_{year}"), floor=s)
+
+
+def variant_tasks() -> list[tuple]:
+    """Fixed-gamma design (LAB_FIXED_GAMMA=1): (run, lambda, year or None). No-cost daily runs by year, no-cost monthly
+    runs whole; daily cost runs by (lambda, year) with a warm-up, monthly cost runs by lambda."""
+    years = range(FIRST_YEAR, END.year + 1)
+    tasks = [(n, 0.0, y) for n in ("U-D", "S-D", "C-D") for y in years] + [(n, 0.0, None) for n in ("U-M", "S-M", "C-M")]
+    tasks += [(n, lam, y) for n in ("UC-D", "SC-D", "CC-D") for lam in O["lambdas"] for y in years]
+    return tasks + [(n, lam, None) for n in ("UC-M", "SC-M", "CC-M") for lam in O["lambdas"]]
+
+
+def variant_name(name: str, lam: float, year) -> str:
+    costs = RUNS[name][2]
+    return (f"{name}/lambda_{lam:g}" if costs else name) + (f"/year_{year}" if year else ("" if costs else "/lambda_0"))
+
+
+def variant(task: int) -> None:
+    """One fixed-gamma task. A daily cost run's year starts from the benchmark warm_up_days trading days before
+    January 1 and records from January 1, so years are independent; the first development year has no warm-up."""
+    if not FIXED:
+        raise SystemExit("variant tasks need LAB_FIXED_GAMMA=1")
+    name, lam, year = variant_tasks()[task]
+    floor = O["short_limit"] if name in LIMITED else None
+    if year is None:
+        return run(name, lam, START, RUN_END, variant_name(name, lam, year), floor=floor)
+    lo, hi = max(dt.date(year, 1, 1), START), min(dt.date(year, 12, 31), RUN_END)
+    warm = lo
+    if RUNS[name][2] and year > O["first_year"]:
+        warm = trading_days(lo - dt.timedelta(days=O["warm_up_days"] * 2), lo - dt.timedelta(days=1))[-O["warm_up_days"]]
+    run(name, lam, warm, hi, variant_name(name, lam, year), floor=floor, record_from=lo)
 
 
 def smoke_tasks() -> list[int]:
@@ -320,12 +397,16 @@ def ir(x: np.ndarray, frequency: str) -> float:
 
 
 def select_lambda() -> None:
-    """Walk-forward stage 2: from first_lambda_year, each January takes the lambda with the best net IR so far."""
+    """Walk-forward stage 2: from first_lambda_year, each January takes the lambda with the best net IR so far.
+    Fixed-gamma design: the six cost runs, and the chosen run is stitched year by year from the grid runs into
+    {name}/final (exact for daily, whose years are independent; monthly carries holdings across a switch)."""
     out = {}
-    for name in ("CC-D", "CC-M"):
+    names = ("UC-D", "SC-D", "CC-D", "UC-M", "SC-M", "CC-M") if FIXED else ("CC-D", "CC-M")
+    for name in names:
         grid, default = O["lambdas"], O["default_lambda"]
         frequency = RUNS[name][0]
-        perf = {lam: performance(name, f"{name}/lambda_{lam:g}") for lam in grid}
+        stem = lambda lam: f"{name}/lambda_{lam:g}" + ("/year_*" if FIXED and frequency == "daily" else "")
+        perf = {lam: performance(name, stem(lam)) for lam in grid}
         schedule = {}
         for year in range(O["first_year"], RUN_END.year + 1):
             if year < O["first_lambda_year"]:
@@ -334,6 +415,14 @@ def select_lambda() -> None:
             scores = {lam: ir(p.filter(pl.col("date") < dt.date(year, 1, 1))["net"].to_numpy(), frequency) for lam, p in perf.items()}
             schedule[str(year)] = max(scores, key=lambda lam: scores[lam])
         out[name] = schedule
+        if FIXED:
+            parts = {lam: load_run(stem(lam)) for lam in set(schedule.values())}
+            pick = lambda df, year: df.filter(pl.col("date").dt.year() == year)
+            w = pl.concat([pick(parts[schedule[str(y)]][0], y) for y in range(O["first_year"], RUN_END.year + 1)])
+            d = pl.concat([pick(parts[schedule[str(y)]][1], y) for y in range(O["first_year"], RUN_END.year + 1)])
+            (RUNS_DIR / name).mkdir(parents=True, exist_ok=True)
+            w.write_parquet(RUNS_DIR / f"{name}/final.parquet")
+            d.write_parquet(RUNS_DIR / f"{name}/final_days.parquet")
     SCHEDULE.write_text(json.dumps(out, indent=1))
     print(json.dumps(out, indent=1), flush=True)
 
@@ -368,6 +457,11 @@ def final(task: int) -> None:
 
 STEMS = {"U-D": "U-D/year_*", "C-D": "C-D/year_*", "U-M": "U-M/lambda_0", "CC-D": "CC-D/final", "CC-M": "CC-M/final",
          "C-M": "C-M/lambda_0"}
+if FIXED:  # fixed-gamma design: its own folder, no limit grid
+    STEMS = {"U-D": "U-D/year_*", "S-D": "S-D/year_*", "C-D": "C-D/year_*", "U-M": "U-M/lambda_0", "S-M": "S-M/lambda_0",
+             "C-M": "C-M/lambda_0"} | {n: f"{n}/final" for n in ("UC-D", "SC-D", "CC-D", "UC-M", "SC-M", "CC-M")}
+elif "short_limit" in O:
+    STEMS |= {n: short_stem(n, O["short_limit"]) for n in ("S-D", "S-M")}
 
 
 def available() -> dict:
@@ -396,7 +490,8 @@ def tc() -> None:
             "mean_flagged_share_abs": float(d["flagged_share_abs"].mean()), "mean_small_share_abs": float(d["small_share_abs"].mean()),
             "mean_factor_risk_share": float(d["factor_risk_share"].mean()),
         })
-    pairs = [("C-D", "U-D"), ("CC-D", "U-D"), ("C-M", "U-M"), ("CC-M", "U-M")]
+    pairs = [("C-D", "U-D"), ("CC-D", "U-D"), ("C-M", "U-M"), ("CC-M", "U-M"), ("S-D", "U-D"), ("S-M", "U-M"),
+             ("SC-D", "U-D"), ("SC-M", "U-M"), ("UC-D", "U-D"), ("UC-M", "U-M")]
     years = (RUN_END - START).days / 365.25
     rows = []
     for con, ref in [p for p in pairs if p[0] in perf and p[1] in perf]:
@@ -428,13 +523,15 @@ def check() -> None:
             problems.append(f"{r['run']}: {r['failed']} failed solves")
         if long_only and r["min_total_weight"] < -1e-8:
             problems.append(f"{r['run']}: shorting {r['min_total_weight']:.2e}")
+        if r["run"] in LIMITED and r["min_total_weight"] < -O["short_limit"] - 1e-8:
+            problems.append(f"{r['run']}: short beyond the limit {r['min_total_weight']:.2e}")
         if r["max_abs_sum_h"] > 1e-6 or r["max_abs_beta_h"] > 1e-6:
             problems.append(f"{r['run']}: zero-investment or zero-beta broken")
-        if r["mean_active_risk_model"] > O["target_risk"] + 1e-4:
+        if r["mean_active_risk_model"] > TARGET + 1e-4:
             problems.append(f"{r['run']}: risk above cap")
         if costs and (r["mean_turnover"] <= 0 or r["mean_flagged_share_abs"] < 0.2):
             problems.append(f"{r['run']}: cost run barely trades flagged names (turnover {r['mean_turnover']:.4f}, flagged share {r['mean_flagged_share_abs']:.2f})")
-    for name, stem in STEMS.items():
+    for name, stem in available().items():
         _, d = load_run(stem)
         live = d.filter(pl.col("status") == "ok")
         if live.height and float(live["alpha_h"].mean()) <= 0:
@@ -453,3 +550,35 @@ def check() -> None:
     print("\n".join(problems) if problems else "all checks passed", flush=True)
     if problems:
         raise SystemExit(1)
+
+
+def pick_short() -> None:
+    """Choose the short limit on the development years: among limits whose daily run averages at least
+    min_middle_risk ex-ante active risk, the highest daily IR; if none gets there, the riskiest. Writes
+    ANALYSIS/short_limit_grid.csv."""
+    rows = []
+    for s in O["short_limits"]:
+        row = {"limit": s}
+        for name in ("S-D", "S-M"):
+            stem = short_stem(name, s)
+            if not any(f for f in RUNS_DIR.glob(f"{stem}.parquet") if not f.stem.endswith("_days")):
+                continue
+            frequency = RUNS[name][0]
+            _, d = load_run(stem)
+            p = performance(name, stem)
+            k = 252 if frequency == "daily" else 12
+            tag = name[-1].lower()
+            row |= {f"ir_{tag}": ir(p["gross"].to_numpy(), frequency), f"return_{tag}": float(p["gross"].mean() * k),
+                    f"risk_ex_ante_{tag}": float(d["active_risk"].mean()), f"turnover_{tag}": float(d["turnover"].mean() * k),
+                    f"min_total_weight_{tag}": float(d["min_total_weight"].min()), f"failed_{tag}": int((d["status"] == "failed").sum())}
+        rows.append(row)
+    grid = pl.DataFrame(rows)
+    big = grid.filter(pl.col("risk_ex_ante_d") >= O["min_middle_risk"])
+    chosen = (big.sort("ir_d", descending=True) if big.height else grid.sort("risk_ex_ante_d", descending=True))["limit"][0]
+    grid = grid.with_columns(chosen=pl.col("limit") == chosen)
+    ANALYSIS.mkdir(parents=True, exist_ok=True)
+    grid.write_csv(ANALYSIS / "short_limit_grid.csv")
+    with pl.Config(tbl_cols=30, tbl_width_chars=250, float_precision=4):
+        print(grid)
+    print(json.dumps({"short_limit": chosen, "rule": "highest daily IR among limits with mean ex-ante risk >= "
+                      f"{O['min_middle_risk']}" if big.height else "no limit reached the risk floor: riskiest"}), flush=True)

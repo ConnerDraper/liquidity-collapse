@@ -14,28 +14,50 @@ import numpy as np
 import polars as pl
 
 from liquidity_collapse import style
+from liquidity_collapse.config import CFG
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "output/results"
 OPT = ROOT / "output/optimizer"
 AN = OPT / "analysis"
 HOLD = ROOT / "output/optimizer_holdout/analysis"  # frozen design run on 2019-2024
+# FIXED_GAMMA=1: the fixed-gamma design (1% cap, trading costs) on the backtest slides, written to
+# slides/slides_fixed_gamma.tex with its own pair figures; the current deck and figures are left alone.
+FIXED_DECK = os.environ.get("FIXED_GAMMA") == "1"
+PAN = ROOT / "output/optimizer_fixed_gamma/analysis" if FIXED_DECK else AN  # runs on the backtest slides
+SUFFIX = "_fg" if FIXED_DECK else ""
 
 
 def has_holdout() -> bool:
     """Holdout results go into the slides only when asked for: SHOW_HOLDOUT=1."""
     files = ("return_series.parquet", "summary.csv", "transfer_coefficient.csv", "implied_costs.json")
-    return os.environ.get("SHOW_HOLDOUT") == "1" and all((HOLD / f).exists() for f in files)
+    return not FIXED_DECK and os.environ.get("SHOW_HOLDOUT") == "1" and all((HOLD / f).exists() for f in files)
 SLIDES = ROOT / "slides"
 PAPER_FIG = ROOT / "paper/figures"
 BLUE, ORANGE, AQUA, GREY = "#2a78d6", "#eb6834", "#1baf7a", "#8a8a8a"
 RUN_COLOR = {"U-D": BLUE, "U-M": ORANGE, "C-D": BLUE, "CC-D": ORANGE, "CC-M": AQUA}
 RUN_NAME = {"U-D": "Daily, no limits", "U-M": "Monthly, no limits", "C-D": "Daily, no shorting",
-            "CC-D": "Daily, no shorting, costs", "CC-M": "Monthly, no shorting, costs", "C-M": "Monthly, no shorting"}
-# The two backtest slides: same three roles at each frequency, same colors by role.
-PAIRS = {"daily": ["U-D", "C-D"], "monthly": ["U-M", "C-M"]}
-ROLE = ["No limits", "No shorting"]
-ROLE_COLOR = [BLUE, ORANGE]
+            "CC-D": "Daily, no shorting, costs", "CC-M": "Monthly, no shorting, costs", "C-M": "Monthly, no shorting",
+            "S-D": "Daily, limited shorting", "S-M": "Monthly, limited shorting",
+            "SC-D": "Daily, limited shorting, costs", "SC-M": "Monthly, limited shorting, costs",
+            "UC-D": "Daily, no limits, costs", "UC-M": "Monthly, no limits, costs"}
+SHORT = CFG["optimizer"].get("short_limit")  # per-stock short limit of the middle portfolio, chosen on 2011-2018
+if not FIXED_DECK and not ((AN / "summary.csv").exists() and "S-D" in pl.read_csv(AN / "summary.csv")["run"].to_list()):
+    SHORT = None  # the current deck has no limited-shorting runs
+SHORT_PCT = f"{SHORT * 100:g}" if SHORT else None
+# The two backtest slides: same roles at each frequency, same colors by role.
+if FIXED_DECK:
+    PAIRS = {"daily": ["U-D", "SC-D", "CC-D"], "monthly": ["U-M", "SC-M", "CC-M"]}
+    ROLE = ["No limits", "Limited shorting + costs", "No shorting + costs"]
+    ROLE_COLOR = [BLUE, AQUA, ORANGE]
+elif SHORT:
+    PAIRS = {"daily": ["U-D", "S-D", "C-D"], "monthly": ["U-M", "S-M", "C-M"]}
+    ROLE = ["No limits", "Limited shorting", "No shorting"]
+    ROLE_COLOR = [BLUE, AQUA, ORANGE]
+else:
+    PAIRS = {"daily": ["U-D", "C-D"], "monthly": ["U-M", "C-M"]}
+    ROLE = ["No limits", "No shorting"]
+    ROLE_COLOR = [BLUE, ORANGE]
 
 j = lambda p: json.loads(Path(p).read_text())
 style.apply()
@@ -162,12 +184,15 @@ def fig_cumulative(group: str, paper=False):
 
 
 PER_YEAR = {"daily": 252, "monthly": 12}
-FREQ = {"U-D": "daily", "U-M": "monthly", "C-D": "daily", "CC-D": "daily", "CC-M": "monthly", "C-M": "monthly"}
+FREQ = {"U-D": "daily", "U-M": "monthly", "C-D": "daily", "CC-D": "daily", "CC-M": "monthly", "C-M": "monthly",
+        "S-D": "daily", "S-M": "monthly", "SC-D": "daily", "SC-M": "monthly", "UC-D": "daily", "UC-M": "monthly"}
+is_cost = lambda n: len(n.split("-")[0]) == 2  # UC-D, SC-D, CC-D, ...
+LO_RUN = "CC-D" if FIXED_DECK else "C-D"  # the long-only portfolio quoted in the text
 
 
 def fig_pair(freq: str):
     """Slide only, no banner: the three runs of one frequency, each scaled to 1% annual realized active risk."""
-    r = pl.read_parquet(AN / "return_series.parquet")
+    r = pl.read_parquet(PAN / "return_series.parquet")
     fig, ax = plt.subplots(figsize=(5.2, 4.6))
     ax.grid(True, color=style.GRIDLINE, linewidth=0.8)
     ax.set_axisbelow(True)
@@ -200,10 +225,11 @@ def fig_pair(freq: str):
     ax.set_xticks([f"{yr}-01-01" for yr in range(2011, last + 1, step)], [str(yr) for yr in range(2011, last + 1, step)])
     ax.axhline(0, color=style.MUTED_INK, linewidth=1)
     ax.set_ylabel("Cumulative return at 1% risk (%)", fontsize=12, color=style.INK)
-    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, frameon=False, fontsize=13)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2 if len(ROLE) in (2, 4) else 3, frameon=False,
+              fontsize=13 if len(ROLE) == 2 else 10.5, handlelength=1.2, columnspacing=1.0)
     fig.tight_layout()
     (SLIDES / "figures").mkdir(parents=True, exist_ok=True)
-    fig.savefig(SLIDES / "figures" / f"pair_{freq}.png", dpi=200, facecolor="white")
+    fig.savefig(SLIDES / "figures" / f"pair_{freq}{SUFFIX}.png", dpi=200, facecolor="white")
     plt.close(fig)
 
 
@@ -319,8 +345,9 @@ def portfolio_table(size=r"\scriptsize") -> str:
 def pair_table(freq: str, size=r"\scriptsize") -> str:
     """Slide table beside the chart: metrics as rows, the two runs of one frequency as columns. No costs charged;
     the spread cost each would pay if traded alone is shown as a diagnostic."""
-    folders = [AN, HOLD] if has_holdout() else [AN]
-    ms = [run_metrics(n, an) | {"spread": j(an / "implied_costs.json")[n]["cost_pct_per_year"]} for n in PAIRS[freq] for an in folders]
+    folders = [PAN, HOLD] if has_holdout() else [PAN]
+    spread = lambda n, an, m: m["cost"] if is_cost(n) else j(an / "implied_costs.json")[n]["cost_pct_per_year"]
+    ms = [(m := run_metrics(n, an)) | {"spread": spread(n, an, m)} for n in PAIRS[freq] for an in folders]
     rows = [("Active return, \\%/yr", lambda m: num(m["net"], "+.2f")),
             ("Active risk (realized)", lambda m: f"{m['risk']:.2f}\\%"),
             ("IR ($t$)", lambda m: f"{num(m['ir'], '.2f')} ({num(m['t'], '.1f')})"),
@@ -328,14 +355,16 @@ def pair_table(freq: str, size=r"\scriptsize") -> str:
             ("Positive years", lambda m: m["pos"]),
             ("Turnover, $\\times$/yr", lambda m: f"{m['turnover']:.1f}"),
             ("TC vs no limits", lambda m: f"{m['tc']:.2f}" if m["tc"] is not None else "ref."),
-            ("Spread cost if traded alone, \\%/yr", lambda m: f"{m['spread']:.2f}")]
+            (("Spread cost, \\%/yr" if FIXED_DECK else "Spread cost if traded alone, \\%/yr"), lambda m: f"{m['spread']:.2f}")]
+    k = len(PAIRS[freq])
     if len(folders) == 2:
-        lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{lrrrr}", r"\toprule",
-                 r" & \multicolumn{2}{c}{No limits} & \multicolumn{2}{c}{No shorting} \\",
-                 r"\cmidrule(lr){2-3}\cmidrule(lr){4-5}", r" & 2011--18 & 2019--24 & 2011--18 & 2019--24 \\", r"\midrule"]
+        lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{l" + "rr" * k + "}", r"\toprule",
+                 " & " + " & ".join(rf"\multicolumn{{2}}{{c}}{{{r}}}" for r in ROLE) + r" \\",
+                 "".join(rf"\cmidrule(lr){{{2 + 2 * i}-{3 + 2 * i}}}" for i in range(k)),
+                 " & " + " & ".join(["2011--18 & 2019--24"] * k) + r" \\", r"\midrule"]
     else:
-        lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{lrr}", r"\toprule",
-                 r" & No limits & No shorting \\", r"\midrule"]
+        lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{l" + "r" * k + "}", r"\toprule",
+                 " & " + " & ".join(ROLE) + r" \\", r"\midrule"]
     for label, f in rows:
         lines.append(f"{label} & " + " & ".join(f(m) for m in ms) + r" \\")
     lines += [r"\bottomrule", r"\end{tabular}}"]
@@ -350,8 +379,8 @@ def avoid_table(size=r"\small") -> str:
     for r in a.filter(pl.col("portfolio").str.starts_with("Liquidity")).iter_rows(named=True):
         lines.append(f"Just avoid flagged stocks, {r['portfolio'].split(', ')[1]} & {r['avoided_benchmark_weight_pct']:.1f}\\% & "
                      f"{num(r['active_return_pct'], '+.2f')}\\%/yr & {r['active_risk_pct']:.2f}\\% & {num(r['ir'], '.2f')} ({num(r['t'], '.1f')}) & {num(r['hedged_ir'], '.2f')} \\\\")
-    m = run_metrics("C-D", AN)
-    lines += [r"\midrule", f"Optimizer, daily, no shorting & --- &{num(m['net'], '+.2f')}\\%/yr & {m['risk']:.2f}\\% & "
+    m = run_metrics(LO_RUN, PAN)
+    lines += [r"\midrule", f"Optimizer, daily, no shorting{', costs' if FIXED_DECK else ''} & --- &{num(m['net'], '+.2f')}\\%/yr & {m['risk']:.2f}\\% & "
               f"{num(m['ir'], '.2f')} ({num(m['t'], '.1f')}) & --- \\\\", r"\bottomrule", r"\end{tabular}}"]
     return "\n".join(lines)
 
@@ -418,7 +447,7 @@ def size_table(size=r"\scriptsize") -> str:
 
 def paper_results_table(size=r"\small") -> str:
     """Paper: the four portfolios, return / IR / TC in 2011-2018 and in the held-back 2019-2024."""
-    names = {"U-D": "Daily, no limits", "C-D": "Daily, no shorting", "U-M": "Monthly, no limits", "C-M": "Monthly, no shorting"}
+    names = {n: RUN_NAME[n] for n in PAIRS["daily"] + PAIRS["monthly"]}
     folders = [AN, HOLD] if has_holdout() else [AN]
     cols = "l" + "rrr" * len(folders)
     lines = [size, r"\begin{tabular}{" + cols + "}", r"\toprule",
@@ -435,12 +464,66 @@ def paper_results_table(size=r"\small") -> str:
     return "\n".join(lines)
 
 
+def short_grid_table(size=r"\small") -> str:
+    """Appendix: the short limits tried on 2011-2018 and the one kept."""
+    g = pl.read_csv(AN / "short_limit_grid.csv").sort("limit")
+    lines = [size, r"\begin{tabular}{lrrrr}", r"\toprule",
+             r"Short limit per stock & Active risk (model) & IR & Turnover, $\times$/yr & Monthly IR \\", r"\midrule"]
+    for r in g.iter_rows(named=True):
+        cells = [rf"{r['limit'] * 100:g}\%", rf"{r['risk_ex_ante_d'] * 100:.2f}\%", num(r["ir_d"], ".2f"), f"{r['turnover_d']:.0f}",
+                 num(r["ir_m"], ".2f")]
+        if SHORT and abs(r["limit"] - SHORT) < 1e-12:
+            cells = [rf"\textbf{{{c}}}" for c in cells]
+        lines.append(" & ".join(cells) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
+def constraints_table() -> str:
+    """Slide 8: which constraints each portfolio on the backtest slides has."""
+    ck, no = r"$\checkmark$", "--"
+    runs = PAIRS["daily"]
+    rows = [("Fully invested: active weights sum to zero", lambda n: True),
+            ("Zero beta to the benchmark", lambda n: True),
+            (r"Net zero within each size $\times$ liquidity group", lambda n: True)]
+    if SHORT:
+        rows.append((rf"Short at most {SHORT_PCT}\% per stock ($b + h \ge -{SHORT_PCT}\%$)", lambda n: n[0] == "S"))
+    rows.append((r"Long-only: no weight below zero ($b + h \ge 0$)", lambda n: n[0] == "C"))
+    if FIXED_DECK:
+        rows.append((r"Pays half the bid--ask spread on every trade", is_cost))
+    lines = [r"\begin{tabular}{l" + "c" * len(runs) + "}", r"\toprule", "Constraint & " + " & ".join(ROLE) + r" \\", r"\midrule"]
+    for label, has in rows:
+        lines.append(label + " & " + " & ".join(ck if has(n) else no for n in runs) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
+def gamma_costs_table(size=r"\scriptsize") -> str:
+    """Appendix of the fixed-gamma deck: every portfolio with and without trading costs, 2011-2018."""
+    g = pl.read_csv(PAN / "gamma_costs.csv")
+    lines = [size, r"\resizebox{\linewidth}{!}{%", r"\begin{tabular}{llrrrrr}", r"\toprule",
+             r" & & Return, \%/yr & IR ($t$) & Risk & Turnover, $\times$/yr & Spread cost, \%/yr \\", r"\midrule"]
+    for k, freq in enumerate(("daily", "monthly")):
+        if k:
+            lines.append(r"\midrule")
+        lines.append(rf"\multicolumn{{7}}{{l}}{{\textit{{{freq.capitalize()} rebalancing}}}} \\")
+        for r in g.filter(pl.col("frequency") == freq).iter_rows(named=True):
+            cost = f"{r['spread_cost_pct']:.2f}" + ("" if r["costs"] == "with costs" else "*")
+            lines.append(f"{tex_escape(r['portfolio'])} & {r['costs']} & {num(r['net_pct'], '+.2f')} & {num(r['ir'], '.2f')} ({num(r['t'], '.1f')}) & "
+                         f"{r['risk_realized_pct']:.2f}\\% & {r['turnover_per_year']:.0f} & {cost} \\\\")
+    lines += [r"\bottomrule", r"\end{tabular}}"]
+    return "\n".join(lines)
+
+
 def deck() -> str:
     period = "2011--2018 and holdout 2019--2024" if has_holdout() else "2011--2018"
-    dv = {n: run_metrics(n, AN) for n in ("U-D", "C-D", "U-M", "C-M")}
+    dv = {n: run_metrics(n, PAN) for n in set(PAIRS["daily"] + PAIRS["monthly"] + [LO_RUN])}
     pct = lambda x: num(x, "+.2f") + r"\%"
     av = pl.read_csv(OPT / "avoid/avoid_summary.csv").filter(pl.col("portfolio").str.starts_with("Liquidity"))
     av_lo, av_hi = av["active_return_pct"].min(), av["active_return_pct"].max()
+    short_note = rf" Limited shorting = total weight $\ge -{SHORT_PCT}\%$." if SHORT else ""
+    if FIXED_DECK:
+        short_note += r" + costs = pays half the spread on each trade; returns are after those costs. Fixed $\gamma$, risk $\le 1\%$."
     hold_note = (r" Holdout: design frozen before it was run; settings re-estimated each January from earlier years only."
                  if has_holdout() else "")
     if has_holdout():
@@ -460,7 +543,8 @@ def deck() -> str:
     else:
         bottom = (r"\item \textbf{Yes, it is real.} Stocks whose trading dries up keep falling: about 3\% behind similar stocks over the next year." + "\n"
                   + r"\item \textbf{Just avoiding them doesn't help:} " + pct(av_lo) + " to " + pct(av_hi) + r" a year, not significant." + "\n"
-                  + r"\item \textbf{Betting against them daily with the optimizer works:} long-only " + pct(dv["C-D"]["net"]) + f" a year (IR {dv['C-D']['ir']:.2f})." + "\n"
+                  + r"\item \textbf{Betting against them daily with the optimizer works:} long-only" + (" after trading costs " if FIXED_DECK else " ")
+                  + pct(dv[LO_RUN]["net"]) + f" a year (IR {dv[LO_RUN]['ir']:.2f})." + "\n"
                   + r"\item \textbf{It is small.} Use it as one input to the fund's alpha.")
         trust = r"\item We built it on 2011--18 in four rounds; 2019--24 is held back for a final test."
     return r"""% Generated by scripts/build_slides.py from saved results.
@@ -536,28 +620,27 @@ Measured once a month, so it understates the first-weeks effect that daily tradi
 
 \begin{frame}{How we bet on it}
 \textbf{Our alpha} (Grinold--Kahn form): \quad $\alpha_i = \sigma_i \times \bar d_{\,\text{age of event}}$
-\begin{itemize}
+""" + (r"""\begin{itemize}\small
+\item $\sigma_i$: volatility; $\bar d$: how far flagged stocks fell behind similar stocks per unit of volatility (ages 1--21, 22--63 days), from earlier years. No recent event: $\alpha = 0$.
+\end{itemize}""" if FIXED_DECK else r"""\begin{itemize}
 \item $\sigma_i$: the stock's volatility. $\bar d$: how far flagged stocks fell behind similar stocks per unit of volatility, at ages 1--21 and 22--63 days after the event, from earlier years only.
 \item Stocks without a recent event get $\alpha = 0$.
-\end{itemize}
+\end{itemize}""") + r"""
 \medskip
-\textbf{Optimizer:} \quad maximize $h^\top\alpha$ \ at a fixed active risk of 5\%
+""" + (r"""\textbf{Optimizer:} \quad maximize $h^\top\alpha - \tfrac{\gamma}{2}\,h^\top V h - \lambda\cdot\text{spread costs}$, \ active risk $\le 1\%$
+\begin{itemize}\small
+\item $\gamma$ is fixed for a year: the previous year's median of the value that would put the no-limits portfolio at 1\% risk.
+\item $\lambda$ (0.5--4) is picked each January from earlier years' net results.
+\end{itemize}""" if FIXED_DECK else r"""\textbf{Optimizer:} \quad maximize $h^\top\alpha$ \ at a fixed active risk of 5\%""") + r"""
 \medskip
 
 \centering\small
-\begin{tabular}{lcc}
-\toprule
-Constraint & No limits & No shorting \\
-\midrule
-Fully invested: active weights sum to zero & $\checkmark$ & $\checkmark$ \\
-Zero beta to the benchmark & $\checkmark$ & $\checkmark$ \\
-Net zero within each size $\times$ liquidity group & $\checkmark$ & $\checkmark$ \\
-Long-only: no weight below zero ($b + h \ge 0$) & -- & $\checkmark$ \\
-\bottomrule
-\end{tabular}
+""" + (r"\resizebox{0.92\linewidth}{!}{" + constraints_table() + "}" if FIXED_DECK else constraints_table()) + r"""
 
 \medskip
-\raggedright\scriptsize No shorting reaches only 0.1--0.5\% active risk: the stocks it bets against hold little benchmark weight. No trading costs are charged.
+\raggedright\scriptsize """ + (r"No limits pays no costs: it is the yardstick for the signal's full strength. No shorting stays small: the stocks it bets against hold little benchmark weight."
+    if FIXED_DECK else r"No shorting reaches only 0.1--0.5\% active risk: the stocks it bets against hold little benchmark weight." + (
+    r" Limited shorting sits in between; its limit was picked on 2011--18 (appendix)." if SHORT else "") + " No trading costs are charged.") + r"""
 \end{frame}
 
 \slide{vol_check.png}
@@ -565,7 +648,7 @@ Long-only: no weight below zero ($b + h \ge 0$) & -- & $\checkmark$ \\
 \begin{frame}{Daily rebalancing, """ + period + r"""}
 \begin{columns}[T]
 \begin{column}{0.50\textwidth}
-\includegraphics[width=\linewidth]{figures/pair_daily.png}
+\includegraphics[width=\linewidth]{figures/pair_daily""" + SUFFIX + r""".png}
 \end{column}
 \begin{column}{0.48\textwidth}
 \vspace{10mm}
@@ -573,14 +656,14 @@ Long-only: no weight below zero ($b + h \ge 0$) & -- & $\checkmark$ \\
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.
+{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.""" + short_note + r"""
 TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 \end{frame}
 
 \begin{frame}{Monthly rebalancing, """ + period + r"""}
 \begin{columns}[T]
 \begin{column}{0.50\textwidth}
-\includegraphics[width=\linewidth]{figures/pair_monthly.png}
+\includegraphics[width=\linewidth]{figures/pair_monthly""" + SUFFIX + r""".png}
 \end{column}
 \begin{column}{0.48\textwidth}
 \vspace{10mm}
@@ -588,7 +671,7 @@ TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 \end{column}
 \end{columns}
 \vspace{1mm}
-{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.
+{\scriptsize Each period's line scaled to 1\% realized risk; the table shows actual numbers. No shorting = total weight $\ge 0$.""" + short_note + r"""
 TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 \end{frame}
 
@@ -624,7 +707,25 @@ TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Appendix: why is the long-only result bigger in 2019--24?}
+""" + (r"""\begin{frame}{Appendix: how we picked the short limit (2011--2018)}
+\centering
+""" + short_grid_table() + r"""
+
+\medskip
+\raggedright\footnotesize Daily runs unless marked, earlier design (5\% risk target). The IRs are within noise of each other, so we chose the limit
+by risk: 0.25\% (bold) sits between long-only and no limits. The same limit is used monthly.
+\end{frame}
+
+""" if SHORT else "") + (r"""\begin{frame}{Appendix: every portfolio with and without trading costs (2011--2018)}
+\centering
+""" + gamma_costs_table() + r"""
+
+\medskip
+\raggedright\footnotesize Fixed $\gamma$, active risk $\le 1\%$. Costs = half the bid--ask spread on every trade, charged in the optimizer and in the returns;
+* = what the portfolio would pay if traded alone (not charged). Risk = realized.
+\end{frame}
+
+""" if FIXED_DECK else "") + (r"""\begin{frame}{Appendix: why is the long-only result bigger in 2019--24?}
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 \centering
@@ -642,7 +743,7 @@ TC = ex-ante transfer coefficient vs.\ no limits.""" + hold_note + r"""\par}
 \end{column}
 \end{columns}
 \end{frame}
-
+""" if not FIXED_DECK else "") + r"""
 \begin{frame}{Appendix: where does the return come from? (2011--2018)}
 \centering
 """ + age_table() + r"""
@@ -655,7 +756,24 @@ with similar stocks; small, illiquid stocks lag in general, so both sides show i
 """
 
 
-if __name__ == "__main__":
+def extend_pairs() -> None:
+    """Fixed-gamma deck: if long-only with costs earns about nothing (t < 1 at either frequency), add long-only without
+    costs as a fourth portfolio, so the slides show both that the signal works and what costs take."""
+    if not any(run_metrics(n, PAN)["t"] < 1 for n in ("CC-D", "CC-M")):
+        return
+    PAIRS["daily"].append("C-D")
+    PAIRS["monthly"].append("C-M")
+    ROLE.append("No shorting, no costs")
+    ROLE_COLOR.append(GREY)
+
+
+if __name__ == "__main__" and FIXED_DECK:
+    extend_pairs()
+    fig_pair("daily")
+    fig_pair("monthly")
+    (SLIDES / "slides_fixed_gamma.tex").write_text(deck())
+    print("built slides_fixed_gamma.tex", PAIRS, flush=True)
+elif __name__ == "__main__":
     for paper in (False, True):
         fig_ic_by_year(paper)
         fig_matched_drift(paper)

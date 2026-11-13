@@ -110,3 +110,43 @@ The design was frozen before the held-back test.
 | "Isn't this data mining?" | We made four rounds of changes on 2011–18, so we froze the design and tested once on six untouched years. It held up when rebalanced daily. |
 | "What would prove you wrong?" | Returns rising after a collapse, the effect showing up as strongly in large liquid stocks, or failure in future out-of-sample data. |
 | "Why not just short these stocks?" | The fund is long-only, and even if it could short, borrowing these stocks is expensive. That's exactly why the drift exists. |
+
+---
+
+# Fixed-γ deck (`slides_fixed_gamma.pdf`): notes for the slides that differ
+
+This deck uses the new design: γ fixed each year, active risk capped at 1%, and trading costs charged. Slides not listed here are the same as above. All numbers are 2011–2018; this design hasn't been run on 2019–2024.
+
+## 8. How we bet on it
+- **Objective:** expected return minus a risk penalty minus trading costs, with active risk capped at 1%.
+- **γ (how much we dislike risk)** is set once a year, from the previous year. Risk floats: we bet more when many collapses are live, less when few are.
+- **Costs:** every trade pays half the bid–ask spread, times λ. λ is picked each January from earlier years: 1 at first, then 0.5–4.
+- **The three portfolios:**
+  - *No limits, no costs*: the yardstick for the signal's full strength.
+  - *Limited shorting + costs*: each stock can be shorted up to 0.25% of the fund.
+  - *No shorting + costs*: what the fund can hold.
+- **Likely question:** "Why does no limits pay no costs?" It isn't meant to be traded. It measures how much the signal could earn, and TC is measured against it.
+
+## 10. Daily rebalancing
+- **No limits:** +1.30% a year at 1.1% risk (IR 1.17), turning over 35× a year.
+- **Limited shorting after costs:** +0.57% a year (IR 0.59), turnover 12× a year, and it pays about 0.5% a year in spreads.
+- **Long-only after costs:** +0.12% a year (IR 1.04, t ≈ 2.9), turnover under 1× a year, almost nothing in spreads.
+- **TC 0.84 and 0.33:** how much of the signal survives the shorting rule and costs together.
+- **Likely question, "the turnover is huge":** charging costs cut it to a third (35× → 14× with no limits, 30× → 12× with limited shorting). The rest is the price of a signal that lives for weeks.
+
+## 11. Monthly rebalancing
+- **Long-only after costs** does about as well as daily: +0.14% a year, IR 1.10, positive in 8 of 8 years.
+- **Limited shorting after costs:** +0.43% a year (IR 0.60).
+- **No limits:** +0.62% a year (IR 0.56). It is weaker than daily because a monthly portfolio reaches most collapses late.
+
+## Appendix: every portfolio with and without trading costs
+- **Costs cut turnover** by about 60% for no limits and limited shorting, and roughly halved the return.
+- **Long-only barely changes:** it trades little to begin with.
+- \* = what that portfolio would pay in spreads if traded alone, not charged.
+
+## If someone asks why we changed the design
+- **Judges asked for something between "trades too much" and "takes too little risk".**
+  - Limited shorting is the in-between portfolio.
+  - Charging costs is how we tamed turnover.
+  - Fixing γ is the textbook set-up.
+- **The 1% cap keeps every portfolio on a comparable scale.**

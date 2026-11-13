@@ -7,11 +7,11 @@ import warnings
 import polars as pl
 import sf_quant.performance as sfp
 
-from liquidity_collapse.optimize import ANALYSIS, RUN_END, START, STEMS, load_run
+from liquidity_collapse.optimize import ANALYSIS, RUN_END, START, STEMS, available, load_run
 
 years = (RUN_END - START).days / 365.25
 out = {}
-for n in ("U-D", "C-D", "U-M", "C-M"):
+for n in [n for n in ("U-D", "S-D", "C-D", "U-M", "S-M", "C-M") if n in available()]:
     w, _ = load_run(STEMS[n])
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

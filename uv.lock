@@ -480,7 +480,7 @@ dependencies = [
 requires-dist = [
     { name = "numpy" },
     { name = "polars" },
-    { name = "sf-quant", directory = "../../libraries/sf-quant-07" },
+    { name = "sf-quant", directory = "../../libraries/sf-quant-08" },
 ]
 
 [[package]]
@@ -1094,7 +1094,7 @@ wheels = [
 [[package]]
 name = "sf-quant"
 version = "0.2.9"
-source = { directory = "../../libraries/sf-quant-07" }
+source = { directory = "../../libraries/sf-quant-08" }
 dependencies = [
     { name = "cvxpy" },
     { name = "dataframely" },

@@ -88,6 +88,9 @@ def main() -> None:
     sub.add_parser("tc"); sub.add_parser("exposures")
     p = sub.add_parser("cache"); p.add_argument("--task", type=int, required=True)
     p = sub.add_parser("backtest"); p.add_argument("--task", type=int, required=True)
+    p = sub.add_parser("short"); p.add_argument("--task", type=int, required=True)
+    sub.add_parser("pick-short")
+    p = sub.add_parser("variant"); p.add_argument("--task", type=int, required=True)
     sub.add_parser("event-params"); sub.add_parser("check")
     p = sub.add_parser("final"); p.add_argument("--task", type=int, required=True)
     p = sub.add_parser("submit-optimizer"); p.add_argument("--smoke", action="store_true"); p.add_argument("--dry-run", action="store_true")
@@ -137,6 +140,15 @@ def main() -> None:
     elif args.command == "backtest":
         from .optimize import backtest
         backtest(args.task)
+    elif args.command == "short":
+        from .optimize import short_backtest
+        short_backtest(args.task)
+    elif args.command == "variant":
+        from .optimize import variant
+        variant(args.task)
+    elif args.command == "pick-short":
+        from .optimize import pick_short
+        pick_short()
     elif args.command == "select-lambda":
         from .optimize import select_lambda
         select_lambda()

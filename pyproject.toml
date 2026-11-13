@@ -16,4 +16,4 @@ build-backend = "hatchling.build"
 packages = ["src/liquidity_collapse"]
 
 [tool.uv.sources]
-sf-quant = { path = "../../libraries/sf-quant-07", editable = false }
+sf-quant = { path = "../../libraries/sf-quant-08", editable = false }
